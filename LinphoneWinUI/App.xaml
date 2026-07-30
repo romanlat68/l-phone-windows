@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Application
+    x:Class="LinphoneWinUI.App"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <Application.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <XamlControlsResources xmlns="using:Microsoft.UI.Xaml.Controls" />
+            </ResourceDictionary.MergedDictionaries>
+
+            <!-- ===== L-Phone design tokens  ===== -->
+            <SolidColorBrush x:Key="LpBrandBrush" Color="#22334D" />
+            <SolidColorBrush x:Key="LpBrandStrongBrush" Color="#1C2C44" />
+            <SolidColorBrush x:Key="LpGreenBrush" Color="#2BA84A" />
+            <SolidColorBrush x:Key="LpRedBrush" Color="#C42B1C" />
+            <SolidColorBrush x:Key="LpSlateMutedBrush" Color="#9FB0C3" />
+            <SolidColorBrush x:Key="LpAvatarFillBrush" Color="#CBD3DC" />
+
+            <!-- ===== Токены дайлера «а-ля iPhone» по темам =====
+                 ВАЖНО: ключ "Default" в ThemeDictionaries означает ТЁМНУЮ тему (правило WinUI).
+                 Светлая палитра повторяет прежний вид (LightGray/Gray/DimGray),
+                 тёмная — iOS-палитру (systemGray6/systemGray4, белый текст). -->
+            <ResourceDictionary.ThemeDictionaries>
+                <ResourceDictionary x:Key="Light">
+                    <SolidColorBrush x:Key="LpNumberFillBrush" Color="#D3D3D3" />
+                    <SolidColorBrush x:Key="LpNumberStrokeBrush" Color="#808080" />
+                    <SolidColorBrush x:Key="LpNumberTextBrush" Color="#696969" />
+                    <SolidColorBrush x:Key="LpBackspaceTextBrush" Color="#696969" />
+                </ResourceDictionary>
+                <ResourceDictionary x:Key="Default">
+                    <SolidColorBrush x:Key="LpNumberFillBrush" Color="#1C1C1E" />
+                    <SolidColorBrush x:Key="LpNumberStrokeBrush" Color="#3A3A3C" />
+                    <SolidColorBrush x:Key="LpNumberTextBrush" Color="#FFFFFF" />
+                    <SolidColorBrush x:Key="LpBackspaceTextBrush" Color="#EBEBF5" />
+                </ResourceDictionary>
+            </ResourceDictionary.ThemeDictionaries>
+        </ResourceDictionary>
+    </Application.Resources>
+</Application>

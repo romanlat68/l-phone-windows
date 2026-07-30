@@ -1,0 +1,27 @@
+<!-- @dsCard group="Type" viewport="700x300" name="Type Ramp — Segoe UI Variable" subtitle="Fluent ramp: Display → Title → Subtitle → Body → Caption." -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<link rel="stylesheet" href="../styles.css" />
+<style>
+  body { margin: 0; font-family: var(--font-sans); background: var(--surface-card); color: var(--text-primary); }
+  .wrap { padding: 22px 24px; display: flex; flex-direction: column; gap: 14px; }
+  .line { display: flex; align-items: baseline; gap: 16px; border-bottom: 1px solid var(--stroke-divider); padding-bottom: 12px; }
+  .line > span:last-child { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .line:last-child { border-bottom: 0; }
+  .meta { width: 150px; flex: none; font-size: 11px; color: var(--text-tertiary); font-family: var(--font-mono); }
+  .meta b { display: block; color: var(--text-secondary); font-family: var(--font-sans); font-weight: var(--fw-semibold); font-size: 11px; margin-bottom: 2px; }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="line"><span class="meta"><b>Title Large</b>40 / 52 · 600</span><span class="lp-title-large">Не подключён</span></div>
+    <div class="line"><span class="meta"><b>Subtitle</b>20 / 28 · 600</span><span class="lp-subtitle">Звонки и устройства</span></div>
+    <div class="line"><span class="meta"><b>Body Large</b>18 / 24 · 400</span><span class="lp-body-large">Идёт разговор · 00:42</span></div>
+    <div class="line"><span class="meta"><b>Body Strong</b>14 / 20 · 600</span><span class="lp-body-strong">Принять входящий вызов</span></div>
+    <div class="line"><span class="meta"><b>Body</b>14 / 20 · 400</span><span class="lp-body">Откройте настройки для входа в аккаунт</span></div>
+    <div class="line"><span class="meta"><b>Caption</b>12 / 16 · 400</span><span class="lp-caption">sip:1001@sip.example.com</span></div>
+  </div>
+</body>
+</html>

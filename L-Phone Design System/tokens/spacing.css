@@ -1,0 +1,68 @@
+/* ============================================================
+   L-Phone — Spacing, radius, elevation & motion
+   Fluent uses a 4px base grid, small control radii (4px),
+   larger overlay radii (8px), and layered drop shadows for
+   flyouts/dialogs. Circular controls (call buttons) are fully
+   rounded.
+   ============================================================ */
+
+:root {
+  /* ---- Spacing scale (4px grid) ----------------------- */
+  --space-0:   0;
+  --space-1:   2px;
+  --space-2:   4px;
+  --space-3:   6px;
+  --space-4:   8px;
+  --space-5:   10px;
+  --space-6:   12px;
+  --space-7:   14px;
+  --space-8:   16px;
+  --space-10:  20px;
+  --space-12:  24px;
+  --space-16:  32px;
+  --space-20:  40px;
+  --space-24:  48px;
+
+  /* ---- Corner radius ---------------------------------- */
+  --radius-sm:    4px;    /* buttons, inputs, controls       */
+  --radius-md:    8px;    /* cards, flyouts, dialogs          */
+  --radius-lg:    12px;
+  --radius-pill:  999px;  /* capsule call-pill, chips         */
+  --radius-round: 50%;    /* avatars, circular call controls  */
+
+  /* ---- Control sizing --------------------------------- */
+  --control-height:        32px;   /* Fluent standard control  */
+  --control-height-sm:     28px;
+  --control-min-touch:     40px;   /* dial keys, nav tabs      */
+  --call-button-size:      64px;   /* primary call FAB         */
+  --call-control-size:     48px;   /* in-call circular control */
+  --avatar-size:           40px;
+  --avatar-size-sm:        38px;
+
+  /* ---- Borders ---------------------------------------- */
+  --border-hairline: 1px;
+  --border-control:  1px;
+  /* Fluent control "bottom accent" stroke on inputs */
+  --control-bottom-accent: rgba(0, 0, 0, 0.45);
+
+  /* ---- Elevation (Fluent layered shadows) ------------- */
+  --shadow-card:
+    0 1px 3px rgba(0, 0, 0, 0.06),
+    0 0.3px 0.9px rgba(0, 0, 0, 0.10);
+  --shadow-flyout:
+    0 8px 16px rgba(0, 0, 0, 0.14),
+    0 0 1px rgba(0, 0, 0, 0.12);
+  --shadow-dialog:
+    0 32px 64px rgba(0, 0, 0, 0.18),
+    0 2px 21px rgba(0, 0, 0, 0.14);
+  --shadow-call-fab:
+    0 4px 12px rgba(43, 168, 74, 0.35);
+
+  /* ---- Motion (Fluent easing) ------------------------- */
+  --ease-standard:    cubic-bezier(0.33, 0, 0.67, 1); /* @kind other */
+  --ease-decelerate:  cubic-bezier(0.1, 0.9, 0.2, 1); /* @kind other */
+  --ease-accelerate:  cubic-bezier(0.7, 0, 1, 0.5); /* @kind other */
+  --dur-fast:    0.1s; /* @kind other */
+  --dur-normal:  0.167s; /* @kind other */
+  --dur-slow:    0.3s; /* @kind other */
+}

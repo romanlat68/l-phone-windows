@@ -1,0 +1,30 @@
+# Сборочный вывод .NET / Visual Studio
+[Bb]in/
+[Oo]bj/
+.vs/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+UpgradeLog*.htm
+
+# Вывод сборки/инсталлятора (артефакты, не исходники)
+dist/
+installer/*.exe
+
+# NuGet
+packages/
+*.nupkg
+.nuget/
+
+# Кэш авто-загруженного liblinphone SDK (см. LinphoneSdk.targets)
+.sdk/
+
+# Прочее
+*.cache
+*.log
+Thumbs.db
+desktop.ini
+
+# ВАЖНО: LinphoneWinUI/native/ НЕ игнорируется — это вендорные нативные DLL liblinphone,
+# необходимые для P/Invoke и сборки проекта.

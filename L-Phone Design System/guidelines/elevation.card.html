@@ -1,0 +1,22 @@
+<!-- @dsCard group="Spacing" viewport="700x160" name="Elevation — Fluent Shadows" subtitle="Layered shadows for cards, flyouts & dialogs." -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<link rel="stylesheet" href="../styles.css" />
+<style>
+  body { margin: 0; font-family: var(--font-sans); background: var(--surface-page); color: var(--text-primary); }
+  .wrap { padding: 26px 24px; display: flex; gap: 26px; }
+  .item { display: flex; flex-direction: column; align-items: center; gap: 12px; }
+  .card { width: 150px; height: 70px; background: var(--surface-card); border-radius: var(--radius-md); border: 1px solid var(--stroke-card); display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: var(--fw-semibold); }
+  .t { font-size: 10.5px; font-family: var(--font-mono); color: var(--text-tertiary); }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="item"><div class="card" style="box-shadow:var(--shadow-card);">Card</div><span class="t">--shadow-card</span></div>
+    <div class="item"><div class="card" style="box-shadow:var(--shadow-flyout);">Flyout</div><span class="t">--shadow-flyout</span></div>
+    <div class="item"><div class="card" style="box-shadow:var(--shadow-dialog);">Dialog</div><span class="t">--shadow-dialog</span></div>
+  </div>
+</body>
+</html>

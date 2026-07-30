@@ -1,0 +1,31 @@
+<!-- @dsCard group="Type" viewport="700x150" name="Weights & Dialer Numerals" subtitle="Regular / SemiBold UI weights and the large dial-pad numerals." -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<link rel="stylesheet" href="../styles.css" />
+<style>
+  body { margin: 0; font-family: var(--font-sans); background: var(--surface-card); color: var(--text-primary); }
+  .wrap { padding: 20px 24px; display: flex; align-items: center; gap: 36px; }
+  .weights { display: flex; flex-direction: column; gap: 6px; }
+  .weights span { font-size: 19px; }
+  .weights small { font-size: 10px; color: var(--text-tertiary); font-family: var(--font-mono); margin-left: 10px; }
+  .numerals { margin-left: auto; display: flex; align-items: baseline; gap: 4px; color: var(--lp-navy-400); }
+  .numerals .d { font-size: var(--type-dial-digit); font-weight: var(--fw-regular); width: 42px; text-align: center; }
+  .numerals .sub { font-size: 14px; color: var(--text-tertiary); }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="weights">
+      <span style="font-weight:var(--fw-regular);">Regular dialing keypad<small>400</small></span>
+      <span style="font-weight:var(--fw-medium);">Medium label accent<small>500</small></span>
+      <span style="font-weight:var(--fw-semibold);">SemiBold — Strong<small>600</small></span>
+    </div>
+    <div class="numerals">
+      <span class="d">1</span><span class="d">2</span><span class="d">3</span>
+      <span class="d" style="position:relative;">0<span class="sub" style="position:absolute;left:50%;transform:translateX(-50%);bottom:-6px;font-size:14px;">+</span></span>
+    </div>
+  </div>
+</body>
+</html>

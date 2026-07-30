@@ -1,0 +1,274 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
+  <resheader name="version"><value>2.0</value></resheader>
+  <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+
+  <!-- MainWindow -->
+  <data name="HdrOpenSettings.Text" xml:space="preserve"><value>Open settings to sign in</value></data>
+  <data name="MenuMyAccount.Text" xml:space="preserve"><value>My account</value></data>
+  <data name="MenuSettings.Text" xml:space="preserve"><value>Settings</value></data>
+  <data name="MenuAbout.Text" xml:space="preserve"><value>About</value></data>
+  <data name="MenuExit.Text" xml:space="preserve"><value>Exit</value></data>
+  <data name="IncomingCall.Text" xml:space="preserve"><value>Incoming call</value></data>
+  <data name="BtnAccept.Content" xml:space="preserve"><value>Accept</value></data>
+  <data name="BtnDecline.Content" xml:space="preserve"><value>Decline</value></data>
+  <data name="ContactsSearchBox.PlaceholderText" xml:space="preserve"><value>Search by name or number</value></data>
+  <data name="ContactsEmptyText.Text" xml:space="preserve"><value>Nothing found</value></data>
+  <data name="HistoryEmptyText.Text" xml:space="preserve"><value>Call log is empty</value></data>
+  <data name="BtnClearHistory.Content" xml:space="preserve"><value>Clear log</value></data>
+  <data name="ChatPeer.PlaceholderText" xml:space="preserve"><value>Contact: number or SIP address</value></data>
+  <data name="ChatNewPeer.PlaceholderText" xml:space="preserve"><value>New chat: number or SIP address</value></data>
+  <data name="ChatEmptyText.Text" xml:space="preserve"><value>No conversations</value></data>
+  <data name="ChatInputBox.PlaceholderText" xml:space="preserve"><value>Message…</value></data>
+  <data name="LblVideo.Text" xml:space="preserve"><value>Video</value></data>
+  <data name="LblMic.Text" xml:space="preserve"><value>Mic</value></data>
+  <data name="LblHold.Text" xml:space="preserve"><value>Hold</value></data>
+  <data name="LblTransfer.Text" xml:space="preserve"><value>Transfer</value></data>
+  <data name="LblHangup.Text" xml:space="preserve"><value>End</value></data>
+  <data name="LblSwap.Text" xml:space="preserve"><value>Switch</value></data>
+  <data name="LblRecord.Text" xml:space="preserve"><value>Record</value></data>
+  <data name="NavDialText.Text" xml:space="preserve"><value>Dialer</value></data>
+  <data name="NavContactsText.Text" xml:space="preserve"><value>Contacts</value></data>
+  <data name="NavHistoryText.Text" xml:space="preserve"><value>Log</value></data>
+  <data name="NavChatText.Text" xml:space="preserve"><value>Chat</value></data>
+  <data name="NavFavoritesText.Text" xml:space="preserve"><value>Favorites</value></data>
+  <data name="FavoritesEmptyText.Text" xml:space="preserve"><value>No favorites yet</value></data>
+  <data name="Ct_Add" xml:space="preserve"><value>New contact</value></data>
+  <data name="Ct_Edit" xml:space="preserve"><value>Edit contact</value></data>
+  <data name="Ct_Delete" xml:space="preserve"><value>Delete</value></data>
+  <data name="Ct_Name" xml:space="preserve"><value>Name</value></data>
+  <data name="Ct_Number" xml:space="preserve"><value>Number</value></data>
+  <data name="Ct_Mobile" xml:space="preserve"><value>Mobile</value></data>
+  <data name="Tray_Missed" xml:space="preserve"><value>Missed: {0}</value></data>
+  <data name="Tray_Unread" xml:space="preserve"><value>New messages: {0}</value></data>
+  <data name="TrayOpen.Text" xml:space="preserve"><value>Open L-Phone</value></data>
+  <data name="TrayExit.Text" xml:space="preserve"><value>Exit</value></data>
+
+  <!-- SettingsWindow: nav -->
+  <data name="NavAccount.Content" xml:space="preserve"><value>Accounts</value></data>
+  <data name="NavDevices.Content" xml:space="preserve"><value>Calls &amp; devices</value></data>
+  <data name="NavContacts.Content" xml:space="preserve"><value>Contacts</value></data>
+  <data name="NavCodecs.Content" xml:space="preserve"><value>Codecs &amp; encryption</value></data>
+  <data name="NavAdvanced.Content" xml:space="preserve"><value>Advanced</value></data>
+  <data name="NavAbout.Content" xml:space="preserve"><value>About</value></data>
+  <data name="BtnSave.Content" xml:space="preserve"><value>Save</value></data>
+
+  <!-- Account -->
+  <data name="TitleAccount.Text" xml:space="preserve"><value>Accounts</value></data>
+  <data name="BtnAddAccount.Content" xml:space="preserve"><value>Add</value></data>
+  <data name="BtnMakeDefault.Content" xml:space="preserve"><value>Make default</value></data>
+  <data name="LblSipAddress.Text" xml:space="preserve"><value>SIP address</value></data>
+  <data name="BoxDisplayName.Header" xml:space="preserve"><value>Display name</value></data>
+  <data name="BoxLogin.Header" xml:space="preserve"><value>Login</value></data>
+  <data name="BoxPassword.Header" xml:space="preserve"><value>Password</value></data>
+  <data name="BoxServer.Header" xml:space="preserve"><value>Server name</value></data>
+  <data name="BoxPort.Header" xml:space="preserve"><value>Port</value></data>
+  <data name="ComboTransport.Header" xml:space="preserve"><value>Transport</value></data>
+  <data name="BoxExpires.Header" xml:space="preserve"><value>Registration timeout (sec)</value></data>
+  <data name="BtnDeleteAccount.Content" xml:space="preserve"><value>Delete account</value></data>
+
+  <!-- Devices -->
+  <data name="TitleDevices.Text" xml:space="preserve"><value>Calls &amp; devices</value></data>
+  <data name="SwEcho.Header" xml:space="preserve"><value>Echo canceller</value></data>
+  <data name="ComboDtmf.Header" xml:space="preserve"><value>DTMF method</value></data>
+  <data name="ComboMic.Header" xml:space="preserve"><value>Microphone</value></data>
+  <data name="ComboSpeaker.Header" xml:space="preserve"><value>Speaker</value></data>
+  <data name="ComboRinger.Header" xml:space="preserve"><value>Ringer device (where the ringtone plays)</value></data>
+  <data name="ComboRingtone.Header" xml:space="preserve"><value>Built-in ringtones</value></data>
+  <data name="PS_Available" xml:space="preserve"><value>Available</value></data>
+  <data name="PS_OnThePhone" xml:space="preserve"><value>On a call</value></data>
+  <data name="PS_DoNotDisturb" xml:space="preserve"><value>Do not disturb</value></data>
+  <data name="PS_Away" xml:space="preserve"><value>Away</value></data>
+  <data name="PS_Offline" xml:space="preserve"><value>Offline</value></data>
+  <data name="ComboCamera.Header" xml:space="preserve"><value>Camera</value></data>
+  <data name="LblRingtone.Text" xml:space="preserve"><value>Ringtone (WAV)</value></data>
+  <data name="BtnPickRingtone.Content" xml:space="preserve"><value>Choose…</value></data>
+  <data name="BtnPlayRingtone.Content" xml:space="preserve"><value>Play</value></data>
+  <data name="BtnDefaultRingtone.Content" xml:space="preserve"><value>Default</value></data>
+  <data name="LblRecordings.Text" xml:space="preserve"><value>Call recordings folder</value></data>
+  <data name="BtnPickRecordingsDir.Content" xml:space="preserve"><value>Choose…</value></data>
+  <data name="BtnOpenRecordingsDir.Content" xml:space="preserve"><value>Open folder</value></data>
+  <data name="BtnDefaultRecordingsDir.Content" xml:space="preserve"><value>Default</value></data>
+
+  <!-- Contacts -->
+  <data name="TitleContacts.Text" xml:space="preserve"><value>Contacts</value></data>
+  <data name="LblPhonebookDesc.Text" xml:space="preserve"><value>The external address book is loaded over HTTP (XML like PhoneBook → DirectoryEntry).</value></data>
+  <data name="BoxPhonebookUrl.Header" xml:space="preserve"><value>Address book URL</value></data>
+  <data name="BoxPhonebookUser.Header" xml:space="preserve"><value>Username (optional)</value></data>
+  <data name="BoxPhonebookPass.Header" xml:space="preserve"><value>Password (blank — keep current)</value></data>
+
+  <!-- Codecs -->
+  <data name="TitleCodecs.Text" xml:space="preserve"><value>Codecs &amp; encryption</value></data>
+  <data name="ComboEncryption.Header" xml:space="preserve"><value>Media encryption</value></data>
+  <data name="LblAudioCodecs.Text" xml:space="preserve"><value>Audio codecs (drag to reorder priority)</value></data>
+  <data name="LblVideoCodecs.Text" xml:space="preserve"><value>Video codecs (drag to reorder priority)</value></data>
+  <data name="EncNone.Content" xml:space="preserve"><value>None</value></data>
+
+  <!-- Advanced -->
+  <data name="TitleAdvanced.Text" xml:space="preserve"><value>Advanced</value></data>
+  <data name="ComboTheme.Header" xml:space="preserve"><value>Appearance</value></data>
+  <data name="ThemeSystem.Content" xml:space="preserve"><value>System</value></data>
+  <data name="ThemeLight.Content" xml:space="preserve"><value>Light</value></data>
+  <data name="ThemeDark.Content" xml:space="preserve"><value>Dark</value></data>
+  <data name="ComboLang.Header" xml:space="preserve"><value>Language</value></data>
+  <data name="LangSystem.Content" xml:space="preserve"><value>System</value></data>
+  <data name="SwAutostart.Header" xml:space="preserve"><value>Start with Windows</value></data>
+  <data name="SwTray.Header" xml:space="preserve"><value>Minimize to tray on close</value></data>
+  <data name="LblBehavior.Text" xml:space="preserve"><value>Behavior</value></data>
+  <data name="SwStartHidden.Header" xml:space="preserve"><value>Start minimized to tray</value></data>
+  <data name="SwDnd.Header" xml:space="preserve"><value>Do not disturb (reject incoming)</value></data>
+  <data name="SwIncomingFront.Header" xml:space="preserve"><value>Bring window to front on incoming call</value></data>
+  <data name="SwPublishPresence.Header" xml:space="preserve"><value>Publish my status (colleagues see me)</value></data>
+  <data name="SwAutoAnswer.Header" xml:space="preserve"><value>Auto-answer incoming calls</value></data>
+  <data name="BoxAutoAnswerDelay.Header" xml:space="preserve"><value>Auto-answer delay (sec)</value></data>
+  <data name="NavBehavior.Content" xml:space="preserve"><value>Behavior</value></data>
+  <data name="TitleBehavior.Text" xml:space="preserve"><value>Behavior</value></data>
+  <data name="BadgeDnd.Text" xml:space="preserve"><value>DND</value></data>
+  <data name="BadgeAuto.Text" xml:space="preserve"><value>Auto</value></data>
+  <data name="St_DndActive" xml:space="preserve"><value>Do not disturb: incoming calls are rejected</value></data>
+  <data name="St_AutoAnswerActive" xml:space="preserve"><value>Auto-answer is enabled</value></data>
+  <data name="LblNat.Text" xml:space="preserve"><value>Network (NAT)</value></data>
+  <data name="BoxStun.Header" xml:space="preserve"><value>STUN server</value></data>
+  <data name="SwIce.Header" xml:space="preserve"><value>Use ICE</value></data>
+  <data name="BtnApplyNat.Content" xml:space="preserve"><value>Apply (network)</value></data>
+  <data name="LblTls.Text" xml:space="preserve"><value>Signalling encryption (TLS)</value></data>
+  <data name="BoxCaFile.Header" xml:space="preserve"><value>CA certificate (PEM) — empty: built-in bundle</value></data>
+  <data name="BtnPickCa.Content" xml:space="preserve"><value>Browse…</value></data>
+  <data name="BtnClearCa.Content" xml:space="preserve"><value>Reset</value></data>
+  <data name="SwTlsVerify.Header" xml:space="preserve"><value>Verify server certificate</value></data>
+  <data name="LblTlsWarn.Text" xml:space="preserve"><value>Verification is off: the connection is encrypted, but the server identity is not confirmed — impersonation is possible.</value></data>
+  <data name="BtnApplyTls.Content" xml:space="preserve"><value>Apply (TLS)</value></data>
+  <data name="St_TlsApplied" xml:space="preserve"><value>TLS trust applied, registration refreshed.</value></data>
+  <data name="St_TlsApplyFailed" xml:space="preserve"><value>Failed to apply TLS settings — the SIP core is unavailable.</value></data>
+  <data name="St_TlsCaMissing" xml:space="preserve"><value>The selected CA file no longer exists — trust settings left unchanged.</value></data>
+  <data name="LblProvisioning.Text" xml:space="preserve"><value>Remote provisioning</value></data>
+  <data name="LblUpdates.Text" xml:space="preserve"><value>Updates</value></data>
+  <data name="SwUpdateCheck.Header" xml:space="preserve"><value>Check for updates on startup</value></data>
+  <data name="BtnCheckUpdate.Content" xml:space="preserve"><value>Check now</value></data>
+  <data name="St_UpdateTitle" xml:space="preserve"><value>Version {0} is available</value></data>
+  <data name="St_UpdateText" xml:space="preserve"><value>Install the update? The app will close and the installer will start.</value></data>
+  <data name="St_UpdateInstall" xml:space="preserve"><value>Install</value></data>
+  <data name="St_UpdateNone" xml:space="preserve"><value>You are on the latest version.</value></data>
+  <data name="St_UpdateFailed" xml:space="preserve"><value>Update failed</value></data>
+  <data name="St_UpdateBadSignature" xml:space="preserve"><value>The downloaded file is not signed by us or the signature is broken. Installation cancelled.</value></data>
+  <data name="St_Close" xml:space="preserve"><value>Close</value></data>
+  <data name="LblProvisioningDesc.Text" xml:space="preserve"><value>On startup the app downloads settings from this URL (provisioning).</value></data>
+  <data name="BoxProvisioningUrl.Header" xml:space="preserve"><value>Remote provisioning URL</value></data>
+  <data name="LblPbxHook.Text" xml:space="preserve"><value>PBX integration</value></data>
+  <data name="LblPbxHookDesc.Text" xml:space="preserve"><value>On status changes the client calls this URL so the PBX learns it (CustomPresence): dnd diverts calls, away is display-only. Placeholders: {ext} — account number, {state} — available/away/dnd.</value></data>
+  <data name="BoxPresenceHook.Header" xml:space="preserve"><value>Status notification URL</value></data>
+  <data name="BoxPresenceHookSecret.Header" xml:space="preserve"><value>Signing secret (blank — no signature)</value></data>
+  <data name="LblRestartHint.Text" xml:space="preserve"><value>Changes apply after restarting the app.</value></data>
+
+  <!-- About -->
+  <data name="LblTagline.Text" xml:space="preserve"><value>Softphone based on liblinphone</value></data>
+  <data name="LblVersion.Text" xml:space="preserve"><value>Version</value></data>
+  <data name="LblLicense.Text" xml:space="preserve"><value>License</value></data>
+  <data name="LblRuntime.Text" xml:space="preserve"><value>Runtime</value></data>
+  <data name="LblDiagnostics.Text" xml:space="preserve"><value>Diagnostics</value></data>
+  <data name="SwVerbose.Header" xml:space="preserve"><value>Verbose logs</value></data>
+  <data name="BtnOpenLogs.Content" xml:space="preserve"><value>Open logs folder</value></data>
+  <data name="BtnClearLogs.Content" xml:space="preserve"><value>Delete logs</value></data>
+  <data name="ExpLog.Header" xml:space="preserve"><value>Application log</value></data>
+
+  <!-- Code-behind dynamic -->
+  <data name="St_NotConnected" xml:space="preserve"><value>Not connected</value></data>
+  <data name="St_Registering" xml:space="preserve"><value>Registering…</value></data>
+  <data name="St_Online" xml:space="preserve"><value>Online</value></data>
+  <data name="St_Offline" xml:space="preserve"><value>Offline</value></data>
+  <data name="St_Missed" xml:space="preserve"><value>Missed</value></data>
+  <data name="St_ErrorPrefix" xml:space="preserve"><value>Error: </value></data>
+  <data name="St_Calling" xml:space="preserve"><value>Calling…</value></data>
+  <data name="St_InCall" xml:space="preserve"><value>In call</value></data>
+  <data name="St_OnHold" xml:space="preserve"><value>On hold</value></data>
+  <data name="St_HeldByRemote" xml:space="preserve"><value>Held by remote</value></data>
+  <data name="St_IncomingCall" xml:space="preserve"><value>Incoming call</value></data>
+  <data name="St_Mic" xml:space="preserve"><value>Mic</value></data>
+  <data name="St_Unmute" xml:space="preserve"><value>Unmute</value></data>
+  <data name="St_Hold" xml:space="preserve"><value>Hold</value></data>
+  <data name="St_Record" xml:space="preserve"><value>Record</value></data>
+  <data name="St_RecordStop" xml:space="preserve"><value>Stop</value></data>
+  <data name="St_Resume" xml:space="preserve"><value>Resume</value></data>
+  <data name="St_TransferTitle" xml:space="preserve"><value>Call transfer</value></data>
+  <data name="St_TransferDo" xml:space="preserve"><value>Transfer</value></data>
+  <data name="St_Cancel" xml:space="preserve"><value>Cancel</value></data>
+  <data name="St_NumberOrSip" xml:space="preserve"><value>Number or SIP address</value></data>
+  <data name="St_RingtoneDefault" xml:space="preserve"><value>(default)</value></data>
+  <data name="St_RingtoneStop" xml:space="preserve"><value>Stop</value></data>
+  <data name="St_RingtoneNotFound" xml:space="preserve"><value>Ringtone file not found</value></data>
+  <data name="LblDeviceCheck.Text" xml:space="preserve"><value>Device check</value></data>
+  <data name="LblCheckMic.Text" xml:space="preserve"><value>Record a few seconds and hear yourself</value></data>
+  <data name="LblCheckSpeaker.Text" xml:space="preserve"><value>Speaker — you should hear a test tone</value></data>
+  <data name="LblCheckCamera.Text" xml:space="preserve"><value>Camera — preview opens in a separate window</value></data>
+  <data name="BtnCheckMic.Content" xml:space="preserve"><value>Check microphone</value></data>
+  <data name="BtnCheckSpeaker.Content" xml:space="preserve"><value>Check speaker</value></data>
+  <data name="BtnCheckCamera.Content" xml:space="preserve"><value>Show preview</value></data>
+  <data name="St_CheckStop" xml:space="preserve"><value>Stop</value></data>
+  <data name="St_CameraHide" xml:space="preserve"><value>Hide preview</value></data>
+  <data name="St_MicRecording" xml:space="preserve"><value>Recording — speak…</value></data>
+  <data name="St_MicPlaying" xml:space="preserve"><value>Playing back…</value></data>
+  <data name="St_MicNoAccess" xml:space="preserve"><value>Microphone unavailable (check access in Windows settings)</value></data>
+  <data name="St_ContactsNoUrl" xml:space="preserve"><value>Address book URL is not set — set it in ⚙ Settings → Contacts.</value></data>
+  <data name="St_Loading" xml:space="preserve"><value>Loading…</value></data>
+  <data name="St_ContactsCount" xml:space="preserve"><value>{0} contacts</value></data>
+  <data name="St_ContactsUpdating" xml:space="preserve"><value>{0} contacts · updating…</value></data>
+  <data name="St_ContactsCache" xml:space="preserve"><value>{0} contacts (from cache; update failed)</value></data>
+  <data name="St_LoadFailed" xml:space="preserve"><value>Failed to load: {0}</value></data>
+  <data name="St_LangNote" xml:space="preserve"><value>The language will change after restarting the app.</value></data>
+  <data name="St_NetApplied" xml:space="preserve"><value>Network settings applied.</value></data>
+  <data name="St_NetApplyFailed" xml:space="preserve"><value>Failed to apply network settings — the SIP core is unavailable.</value></data>
+  <data name="St_UrlCleared" xml:space="preserve"><value>URL cleared.</value></data>
+  <data name="St_SavedRestart" xml:space="preserve"><value>Saved. Takes effect after restart.</value></data>
+  <data name="St_Checking" xml:space="preserve"><value>Checking…</value></data>
+  <data name="St_PhonebookLoaded" xml:space="preserve"><value>OK: {0} contacts loaded.</value></data>
+  <data name="St_TransferToHeld" xml:space="preserve"><value>Connect to held call</value></data>
+  <data name="St_ReasonBusy" xml:space="preserve"><value>Busy</value></data>
+  <data name="St_ReasonDeclined" xml:space="preserve"><value>Call declined</value></data>
+  <data name="St_ReasonNotFound" xml:space="preserve"><value>Number not found</value></data>
+  <data name="St_ReasonNoAnswer" xml:space="preserve"><value>No answer</value></data>
+  <data name="St_ReasonUnavailable" xml:space="preserve"><value>Party unavailable</value></data>
+  <data name="St_ReasonForbidden" xml:space="preserve"><value>Call not allowed</value></data>
+  <data name="SwTurn.Header" xml:space="preserve"><value>Use TURN (relay via the STUN server)</value></data>
+  <data name="BoxTurnUser.Header" xml:space="preserve"><value>TURN username</value></data>
+  <data name="BoxTurnPass.Header" xml:space="preserve"><value>TURN password (empty — keep current)</value></data>
+  <data name="BoxTurnRealm.Header" xml:space="preserve"><value>TURN realm (as on the server)</value></data>
+  <data name="St_CallAction" xml:space="preserve"><value>Call</value></data>
+  <data name="St_LastDialed" xml:space="preserve"><value>Redial last number</value></data>
+  <data name="St_Backspace" xml:space="preserve"><value>Backspace</value></data>
+  <data name="St_SendMessage" xml:space="preserve"><value>Send message</value></data>
+  <data name="SwAutoRedial.Header" xml:space="preserve"><value>Auto-redial when busy</value></data>
+  <data name="BoxAutoRedialDelay.Header" xml:space="preserve"><value>Auto-redial interval (sec)</value></data>
+  <data name="BoxVoicemail.Header" xml:space="preserve"><value>Voicemail number</value></data>
+  <data name="St_VoicemailTip" xml:space="preserve"><value>Voicemail: {0} new — click to listen</value></data>
+  <data name="St_RedialIn" xml:space="preserve"><value>Busy · redialing in {0} s (attempt {1})</value></data>
+  <data name="BtnRedialCancel.Content" xml:space="preserve"><value>Cancel auto-redial</value></data>
+  <data name="LblConference.Text" xml:space="preserve"><value>Conference</value></data>
+  <data name="LblInvite.Text" xml:space="preserve"><value>Invite</value></data>
+  <data name="St_InviteTitle" xml:space="preserve"><value>Invite to the call</value></data>
+  <data name="LblKeypad.Text" xml:space="preserve"><value>Keypad</value></data>
+  <data name="BtnHideKeypad.Content" xml:space="preserve"><value>Hide</value></data>
+  <data name="BadgeMuted.Text" xml:space="preserve"><value>Muted</value></data>
+  <data name="St_AuthStopped" xml:space="preserve"><value>Wrong username/password — registration stopped</value></data>
+  <data name="St_ExtDialTitle" xml:space="preserve"><value>Call an external server?</value></data>
+  <data name="St_ExtDialText" xml:space="preserve"><value>A link is asking to call {0}. This address is not on your PBX — the call will go to a third-party SIP server. Continue?</value></data>
+  <data name="St_ClearHistoryTitle" xml:space="preserve"><value>Clear call history?</value></data>
+  <data name="St_ClearHistoryText" xml:space="preserve"><value>The entire call history will be permanently deleted.</value></data>
+  <data name="St_TransferDone" xml:space="preserve"><value>Transfer completed</value></data>
+  <data name="St_TransferFailed" xml:space="preserve"><value>Transfer failed</value></data>
+  <data name="St_TransferRetry" xml:space="preserve"><value>Transfer again</value></data>
+  <data name="St_TransferRetryText" xml:space="preserve"><value>Could not transfer to {0}. The call is still active — you can transfer to another number.</value></data>
+  <data name="RowCall.Text" xml:space="preserve"><value>Call</value></data>
+  <data name="RowChat.Text" xml:space="preserve"><value>Message</value></data>
+  <data name="RowCopy.Text" xml:space="preserve"><value>Copy number</value></data>
+  <data name="RowFav.Text" xml:space="preserve"><value>Toggle favorite</value></data>
+  <data name="RowPickup.Text" xml:space="preserve"><value>Pick up</value></data>
+  <data name="RowDeleteChat.Text" xml:space="preserve"><value>Delete conversation</value></data>
+  <data name="St_DeleteChatTitle" xml:space="preserve"><value>Delete conversation?</value></data>
+  <data name="St_DeleteChatText" xml:space="preserve"><value>The conversation with “{0}” and its entire history will be deleted permanently.</value></data>
+  <data name="BtnCollectDiag.Content" xml:space="preserve"><value>Collect diagnostics (ZIP to desktop)</value></data>
+  <data name="St_Conference" xml:space="preserve"><value>Conference</value></data>
+  <data name="SwAutoRecord.Header" xml:space="preserve"><value>Automatically record all calls</value></data>
+  <data name="SwClickToCall.Header" xml:space="preserve"><value>Handle tel: and sip: links (click-to-call)</value></data>
+</root>

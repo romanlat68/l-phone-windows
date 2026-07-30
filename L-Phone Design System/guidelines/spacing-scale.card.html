@@ -1,0 +1,28 @@
+<!-- @dsCard group="Spacing" viewport="700x150" name="Spacing Scale — 4px grid" subtitle="Fluent 4px base. Token steps from 2 → 48px." -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<link rel="stylesheet" href="../styles.css" />
+<style>
+  body { margin: 0; font-family: var(--font-sans); background: var(--surface-card); color: var(--text-primary); }
+  .wrap { padding: 22px 24px; display: flex; align-items: flex-end; gap: 16px; }
+  .item { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+  .bar { background: var(--lp-accent-default); border-radius: 2px; width: 18px; }
+  .item .v { font-size: 11px; font-family: var(--font-mono); color: var(--text-secondary); }
+  .item .t { font-size: 10px; color: var(--text-tertiary); }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="item"><div class="bar" style="height:4px;"></div><span class="v">4</span><span class="t">space-2</span></div>
+    <div class="item"><div class="bar" style="height:8px;"></div><span class="v">8</span><span class="t">space-4</span></div>
+    <div class="item"><div class="bar" style="height:12px;"></div><span class="v">12</span><span class="t">space-6</span></div>
+    <div class="item"><div class="bar" style="height:16px;"></div><span class="v">16</span><span class="t">space-8</span></div>
+    <div class="item"><div class="bar" style="height:24px;"></div><span class="v">24</span><span class="t">space-12</span></div>
+    <div class="item"><div class="bar" style="height:32px;"></div><span class="v">32</span><span class="t">space-16</span></div>
+    <div class="item"><div class="bar" style="height:40px;"></div><span class="v">40</span><span class="t">space-20</span></div>
+    <div class="item"><div class="bar" style="height:48px;"></div><span class="v">48</span><span class="t">space-24</span></div>
+  </div>
+</body>
+</html>

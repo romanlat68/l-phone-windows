@@ -1,0 +1,28 @@
+<!-- @dsCard group="Colors" viewport="700x150" name="Brand — L-Phone Navy" subtitle="Header & primary brand surface. #22334D anchors the system." -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<link rel="stylesheet" href="../styles.css" />
+<style>
+  body { margin: 0; font-family: var(--font-sans); background: var(--surface-card); color: var(--text-primary); }
+  .row { display: flex; gap: 0; padding: 20px; }
+  .sw { flex: 1; display: flex; flex-direction: column; justify-content: flex-end; height: 96px; padding: 8px 10px; box-sizing: border-box; }
+  .sw .name { font-size: 11px; font-weight: var(--fw-semibold); }
+  .sw .hex { font-size: 11px; font-family: var(--font-mono); opacity: 0.85; }
+  .sw:first-child { border-radius: var(--radius-sm) 0 0 var(--radius-sm); }
+  .sw:last-child { border-radius: 0 var(--radius-sm) var(--radius-sm) 0; }
+</style>
+</head>
+<body>
+  <div class="row">
+    <div class="sw" style="background:var(--lp-navy-900); color:#fff;"><span class="name">navy-900</span><span class="hex">#16243A</span></div>
+    <div class="sw" style="background:var(--lp-navy-800); color:#fff;"><span class="name">navy-800</span><span class="hex">#1C2C44</span></div>
+    <div class="sw" style="background:var(--lp-navy-700); color:#fff;"><span class="name">navy-700</span><span class="hex">#22334D</span></div>
+    <div class="sw" style="background:var(--lp-navy-500); color:#fff;"><span class="name">navy-500</span><span class="hex">#3A4F6F</span></div>
+    <div class="sw" style="background:var(--lp-navy-400); color:#fff;"><span class="name">navy-400</span><span class="hex">#4E6075</span></div>
+    <div class="sw" style="background:var(--lp-slate-200); color:#22334d;"><span class="name">slate-200</span><span class="hex">#9FB0C3</span></div>
+    <div class="sw" style="background:var(--lp-slate-100); color:#22334d;"><span class="name">slate-100</span><span class="hex">#CBD3DC</span></div>
+  </div>
+</body>
+</html>

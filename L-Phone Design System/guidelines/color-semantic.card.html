@@ -1,0 +1,24 @@
+<!-- @dsCard group="Colors" viewport="700x150" name="Semantic & Call States" subtitle="Call-accept green, hang-up red, plus status hues." -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<link rel="stylesheet" href="../styles.css" />
+<style>
+  body { margin: 0; font-family: var(--font-sans); background: var(--surface-card); color: var(--text-primary); }
+  .row { display: flex; gap: 8px; padding: 20px; }
+  .sw { flex: 1; height: 96px; border-radius: var(--radius-sm); padding: 9px 11px; box-sizing: border-box; display: flex; flex-direction: column; justify-content: space-between; color: #fff; }
+  .sw .use { font-size: 10.5px; opacity: 0.9; }
+  .sw .name { font-size: 11.5px; font-weight: var(--fw-semibold); }
+  .sw .hex { font-size: 10px; font-family: var(--font-mono); opacity: 0.85; }
+</style>
+</head>
+<body>
+  <div class="row">
+    <div class="sw" style="background:var(--call-accept);"><span class="use">Accept / Connected</span><div><div class="name">success</div><span class="hex">#2BA84A</span></div></div>
+    <div class="sw" style="background:var(--call-end);"><span class="use">Hang-up / Delete</span><div><div class="name">danger</div><span class="hex">#C42B1C</span></div></div>
+    <div class="sw" style="background:var(--state-warning);"><span class="use">On hold / Caution</span><div><div class="name">warning</div><span class="hex">#C98A14</span></div></div>
+    <div class="sw" style="background:var(--state-offline);"><span class="use">Unregistered</span><div><div class="name">offline</div><span class="hex">#8A8A8A</span></div></div>
+  </div>
+</body>
+</html>

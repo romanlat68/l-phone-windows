@@ -1,0 +1,40 @@
+<!-- @dsCard group="Colors" viewport="700x180" name="Neutrals — Fluent Ink & Surfaces" subtitle="Layered grays: text on white, card / page / window fills." -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<link rel="stylesheet" href="../styles.css" />
+<style>
+  body { margin: 0; font-family: var(--font-sans); background: var(--surface-card); color: var(--text-primary); }
+  .wrap { padding: 18px 20px; display: flex; flex-direction: column; gap: 14px; }
+  .label { font-size: 10px; letter-spacing: 0.04em; text-transform: uppercase; color: var(--text-tertiary); font-weight: var(--fw-semibold); }
+  .row { display: flex; gap: 8px; }
+  .sw { flex: 1; height: 54px; border-radius: var(--radius-sm); padding: 7px 9px; box-sizing: border-box; display: flex; flex-direction: column; justify-content: flex-end; }
+  .sw .name { font-size: 10.5px; font-weight: var(--fw-semibold); }
+  .sw .hex { font-size: 10px; font-family: var(--font-mono); opacity: 0.7; }
+  .bordered { border: 1px solid var(--stroke-card); }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <div>
+      <div class="label">Text — on light</div>
+      <div class="row" style="margin-top:7px;">
+        <div class="sw bordered" style="color:var(--text-primary);"><span class="name">primary</span><span class="hex">ink 0.89</span></div>
+        <div class="sw bordered" style="color:var(--text-secondary);"><span class="name">secondary</span><span class="hex">ink 0.61</span></div>
+        <div class="sw bordered" style="color:var(--text-tertiary);"><span class="name">tertiary</span><span class="hex">ink 0.45</span></div>
+        <div class="sw bordered" style="color:var(--text-disabled);"><span class="name">disabled</span><span class="hex">ink 0.36</span></div>
+      </div>
+    </div>
+    <div>
+      <div class="label">Surfaces</div>
+      <div class="row" style="margin-top:7px;">
+        <div class="sw bordered" style="background:var(--surface-window);"><span class="name">window</span><span class="hex">#F3F3F3</span></div>
+        <div class="sw bordered" style="background:var(--surface-page);"><span class="name">page</span><span class="hex">#F9F9F9</span></div>
+        <div class="sw bordered" style="background:var(--surface-card);"><span class="name">card</span><span class="hex">#FFFFFF</span></div>
+        <div class="sw" style="background:var(--surface-brand); color:#fff;"><span class="name">brand</span><span class="hex">#22334D</span></div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

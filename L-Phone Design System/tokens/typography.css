@@ -1,0 +1,97 @@
+/* ============================================================
+   L-Phone — Typography tokens
+   Primary face is Segoe UI Variable / Segoe UI, which ships
+   natively on Windows (the L-Phone target platform). Source
+   Sans 3 is loaded as a metric-friendly cross-platform fallback
+   so specimens render outside Windows. Mono is Cascadia / Consolas.
+   ============================================================ */
+
+@import url("fonts.css");
+@import url("https://fonts.googleapis.com/css2?family=Source+Sans+3:ital,wght@0,400;0,600;0,700;1,400&display=swap");
+
+:root {
+  /* ---- Families --------------------------------------- */
+  --font-sans:
+    "Segoe UI Variable Text", "Segoe UI", "Source Sans 3",
+    system-ui, -apple-system, sans-serif;
+  --font-display:
+    "Segoe UI Variable Display", "Segoe UI Variable Text",
+    "Segoe UI", "Source Sans 3", system-ui, sans-serif;
+  --font-mono:
+    "Cascadia Mono", "Cascadia Code", Consolas, "SF Mono",
+    ui-monospace, monospace; /* self-hosted via Fontsource CDN */
+  /* Icon font — self-hosted (Segoe Fluent Icons uploaded). The Icon
+     component still renders Iconify fluent-mdl2 SVGs for cross-platform
+     parity; use this family + codepoints for native Windows text glyphs. */
+  --font-icon: "Segoe Fluent Icons", "Segoe MDL2 Assets";
+
+  /* ---- Weights ---------------------------------------- */
+  --fw-regular:  400; /* @kind font */
+  --fw-medium:   500; /* @kind font */
+  --fw-semibold: 600; /* @kind font */
+  --fw-bold:     700; /* @kind font */
+
+  /* ---- Fluent type ramp (size / line-height) ---------- */
+  --type-caption-size:      12px;
+  --type-caption-line:      16px;
+  --type-body-size:         14px;
+  --type-body-line:         20px;
+  --type-body-large-size:   18px;
+  --type-body-large-line:   24px;
+  --type-subtitle-size:     20px;
+  --type-subtitle-line:     28px;
+  --type-title-size:        28px;
+  --type-title-line:        36px;
+  --type-title-large-size:  40px;
+  --type-title-large-line:  52px;
+  --type-display-size:      68px;
+  --type-display-line:      92px;
+
+  /* App-specific display sizes (dialer) */
+  --type-dial-digit:        32px;   /* dial-pad numbers          */
+  --type-number-entry:      24px;   /* number input              */
+  --type-tab-label:         11px;   /* bottom-nav labels         */
+
+  --tracking-tight:  -0.01em;
+  --tracking-normal: 0;
+}
+
+/* ---- Ready-to-apply text role classes ------------------ */
+.lp-caption {
+  font: var(--fw-regular) var(--type-caption-size) / var(--type-caption-line) var(--font-sans);
+  color: var(--text-secondary);
+}
+.lp-body {
+  font: var(--fw-regular) var(--type-body-size) / var(--type-body-line) var(--font-sans);
+  color: var(--text-primary);
+}
+.lp-body-strong {
+  font: var(--fw-semibold) var(--type-body-size) / var(--type-body-line) var(--font-sans);
+  color: var(--text-primary);
+}
+.lp-body-large {
+  font: var(--fw-regular) var(--type-body-large-size) / var(--type-body-large-line) var(--font-sans);
+  color: var(--text-primary);
+}
+.lp-subtitle {
+  font: var(--fw-semibold) var(--type-subtitle-size) / var(--type-subtitle-line) var(--font-display);
+  color: var(--text-primary);
+}
+.lp-title {
+  font: var(--fw-semibold) var(--type-title-size) / var(--type-title-line) var(--font-display);
+  letter-spacing: var(--tracking-tight);
+  color: var(--text-primary);
+}
+.lp-title-large {
+  font: var(--fw-semibold) var(--type-title-large-size) / var(--type-title-large-line) var(--font-display);
+  letter-spacing: var(--tracking-tight);
+  color: var(--text-primary);
+}
+.lp-display {
+  font: var(--fw-semibold) var(--type-display-size) / var(--type-display-line) var(--font-display);
+  letter-spacing: var(--tracking-tight);
+  color: var(--text-primary);
+}
+.lp-mono {
+  font: var(--fw-regular) var(--type-caption-size) / var(--type-body-line) var(--font-mono);
+}

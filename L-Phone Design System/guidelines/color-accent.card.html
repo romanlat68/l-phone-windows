@@ -1,0 +1,40 @@
+<!-- @dsCard group="Colors" viewport="700x180" name="Accent — Navy" subtitle="L-Phone uses one hue: navy is both the brand surface and the interactive accent (buttons, selection, focus, active tab)." -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<link rel="stylesheet" href="../styles.css" />
+<style>
+  body { margin: 0; font-family: var(--font-sans); background: var(--surface-card); color: var(--text-primary); }
+  .row { display: flex; gap: 0; padding: 18px 20px 6px; }
+  .sw { flex: 1; display: flex; flex-direction: column; justify-content: flex-end; height: 92px; padding: 8px 10px; box-sizing: border-box; color: #fff; }
+  .sw .use { font-size: 10px; opacity: 0.85; }
+  .sw .name { font-size: 11px; font-weight: var(--fw-semibold); margin-top: auto; }
+  .sw .hex { font-size: 11px; font-family: var(--font-mono); opacity: 0.9; }
+  .sw:first-child { border-radius: var(--radius-sm) 0 0 var(--radius-sm); }
+  .sw:last-child { border-radius: 0 var(--radius-sm) var(--radius-sm) 0; }
+  .demo { display: flex; align-items: center; gap: 12px; padding: 6px 20px 18px; }
+  .btn { background: var(--accent-default); color: #fff; border: 0; border-radius: var(--radius-sm); height: 32px; padding: 0 16px; font-family: var(--font-sans); font-size: 14px; }
+  .link { color: var(--text-accent); font-size: 14px; font-weight: var(--fw-semibold); }
+  .seltab { display: inline-flex; flex-direction: column; align-items: center; gap: 3px; color: var(--accent-default); font-size: 12px; }
+  .seltab .bar { width: 28px; height: 3px; border-radius: 2px; background: var(--accent-default); }
+  .chip { display: inline-flex; align-items: center; gap: 7px; font-size: 13px; color: var(--text-secondary); }
+  .chip .u { width: 60px; height: 3px; border-radius: 2px; background: var(--accent-default); }
+</style>
+</head>
+<body>
+  <div class="row">
+    <div class="sw" style="background:var(--lp-navy-900);"><span class="use">Pressed</span><span class="name">navy-900</span><span class="hex">#16243A</span></div>
+    <div class="sw" style="background:var(--lp-navy-800);"><span class="use">Hover</span><span class="name">navy-800</span><span class="hex">#1C2C44</span></div>
+    <div class="sw" style="background:var(--lp-navy-700);"><span class="use">Default · accent</span><span class="name">navy-700</span><span class="hex">#22334D</span></div>
+    <div class="sw" style="background:var(--lp-navy-500);"><span class="use">Light</span><span class="name">navy-500</span><span class="hex">#3A4F6F</span></div>
+    <div class="sw" style="background:var(--lp-slate-200); color:#22334d;"><span class="use">Selection tint</span><span class="name">slate-200</span><span class="hex">#9FB0C3</span></div>
+  </div>
+  <div class="demo">
+    <button class="btn">Сохранить</button>
+    <span class="link">Подробнее</span>
+    <span class="seltab">Набор<span class="bar"></span></span>
+    <span class="chip">Фокус<span class="u"></span></span>
+  </div>
+</body>
+</html>

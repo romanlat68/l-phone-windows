@@ -1,0 +1,413 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Window
+    x:Class="LinphoneWinUI.SettingsWindow"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:local="using:LinphoneWinUI"
+    Title="L-Phone">
+
+    <NavigationView x:Name="Nav" PaneDisplayMode="Left" IsBackButtonVisible="Collapsed"
+                    IsSettingsVisible="False" OpenPaneLength="210" SelectionChanged="OnNavSelectionChanged">
+        <NavigationView.Resources>
+            <!-- Строка списка аккаунтов: точка статуса + имя/sip + пометка «основной» -->
+            <DataTemplate x:Key="AccountRowTemplate">
+                <Grid Padding="2,6" ColumnSpacing="10">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <Ellipse Grid.Column="0" Width="10" Height="10" Fill="{Binding Dot}" VerticalAlignment="Center" />
+                    <StackPanel Grid.Column="1">
+                        <TextBlock Text="{Binding Title}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+                        <TextBlock Text="{Binding Subtitle}" Foreground="Gray" FontSize="12" TextTrimming="CharacterEllipsis" />
+                    </StackPanel>
+                    <FontIcon Grid.Column="2" Glyph="&#xE735;" FontSize="14" Foreground="Goldenrod"
+                              VerticalAlignment="Center" Visibility="{Binding DefaultVisibility}" />
+                </Grid>
+            </DataTemplate>
+            <!-- Элемент списка кодеков: ручка перетаскивания + название + переключатель -->
+            <DataTemplate x:Key="CodecTemplate">
+                <Grid Padding="4,4" ColumnSpacing="10">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <FontIcon Grid.Column="0" Glyph="&#xE76F;" FontSize="14" Foreground="Gray" VerticalAlignment="Center" />
+                    <TextBlock Grid.Column="1" Text="{Binding Label}" VerticalAlignment="Center" />
+                    <ToggleSwitch Grid.Column="2" IsOn="{Binding Enabled}" Toggled="OnCodecToggled"
+                                  OnContent="" OffContent="" MinWidth="0" />
+                </Grid>
+            </DataTemplate>
+        </NavigationView.Resources>
+        <NavigationView.MenuItems>
+            <NavigationViewItem x:Name="NiAccount" Content="Аккаунт" Tag="account">
+                <NavigationViewItem.Icon>
+                    <FontIcon Foreground="BlueViolet" Glyph="&#xE77b;" /></NavigationViewItem.Icon>
+            </NavigationViewItem>
+            <NavigationViewItem x:Name="NiDevices" Content="Звонки и устройства" Tag="devices">
+                <NavigationViewItem.Icon>
+                    <FontIcon Foreground="Green" Glyph="&#xE720;" /></NavigationViewItem.Icon>
+            </NavigationViewItem>
+            <NavigationViewItem x:Name="NiContacts" Content="Контакты" Tag="contacts">
+                <NavigationViewItem.Icon>
+                    <FontIcon Foreground="Violet" Glyph="&#xE779;" /></NavigationViewItem.Icon>
+            </NavigationViewItem>
+            <NavigationViewItem x:Name="NiCodecs" Content="Кодеки и шифрование" Tag="codecs">
+                <NavigationViewItem.Icon>
+                    <FontIcon Foreground="MediumVioletRed" Glyph="&#xE943;" /></NavigationViewItem.Icon>
+            </NavigationViewItem>
+            <NavigationViewItem x:Name="NiBehavior" Content="Поведение" Tag="behavior">
+                <NavigationViewItem.Icon>
+                    <FontIcon Foreground="Teal" Glyph="&#xE713;" /></NavigationViewItem.Icon>
+            </NavigationViewItem>
+            <NavigationViewItem x:Name="NiAdvanced" Content="Дополнительно" Tag="advanced">
+                <NavigationViewItem.Icon>
+                    <FontIcon Foreground="Blue" Glyph="&#xE713;" /></NavigationViewItem.Icon>
+            </NavigationViewItem>
+            <NavigationViewItem x:Name="NiAbout" Content="О программе" Tag="about">
+                <NavigationViewItem.Icon>
+                    <FontIcon Foreground="#2B88D8" Glyph="&#xE946;" /></NavigationViewItem.Icon>
+            </NavigationViewItem>
+        </NavigationView.MenuItems>
+
+        <Grid>
+            <!-- ============ Аккаунты ============ -->
+            <Grid x:Name="AccountPanel" Padding="12,10">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                </Grid.RowDefinitions>
+                <Grid Grid.Row="0" Margin="0,0,0,8">
+                    <TextBlock local:Tr.Key="TitleAccount.Text" Text="Аккаунты" FontSize="22" FontWeight="SemiBold" VerticalAlignment="Center" />
+                    <Button x:Name="AddAccountButton" local:Tr.Key="BtnAddAccount.Content" Content="Добавить" Style="{StaticResource AccentButtonStyle}"
+                            HorizontalAlignment="Right" VerticalAlignment="Center" Click="OnAddAccountClick" />
+                </Grid>
+
+                <ListView x:Name="AccountsList" Grid.Row="1" SelectionMode="Single" MaxHeight="170" Margin="0,0,0,10"
+                          ItemTemplate="{StaticResource AccountRowTemplate}" SelectionChanged="OnAccountSelectionChanged"
+                          BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="6" />
+
+                <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto">
+                    <StackPanel x:Name="AccountForm" Spacing="12" MaxWidth="460" MinWidth="400" HorizontalAlignment="Left">
+                        <TextBlock local:Tr.Key="LblSipAddress.Text" Text="SIP-адрес" Foreground="Gray" FontSize="14" />
+                        <TextBlock x:Name="SipAddressText" Text="—" FontSize="18" IsTextSelectionEnabled="True" />
+
+                        <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,2,0,4">
+                            <Ellipse x:Name="AccountStatusDot" Width="10" Height="10" Fill="Gray" VerticalAlignment="Center" />
+                            <TextBlock x:Name="AccountStatusText" Text="Не подключён" VerticalAlignment="Center" FontSize="13" />
+                        </StackPanel>
+
+                        <TextBox x:Name="DisplayNameBox" local:Tr.Key="BoxDisplayName.Header" Header="Отображаемое имя" />
+                        <TextBox x:Name="LoginBox" local:Tr.Key="BoxLogin.Header" Header="Логин" PlaceholderText="1001" />
+                        <PasswordBox x:Name="PasswordBox" local:Tr.Key="BoxPassword.Header" Header="Пароль" />
+                        <TextBox x:Name="ServerBox" local:Tr.Key="BoxServer.Header" Header="Имя сервера" PlaceholderText="sip.example.com" />
+                        <TextBox x:Name="PortBox" local:Tr.Key="BoxPort.Header" Header="Порт" PlaceholderText="5060" />
+                        <ComboBox x:Name="TransportCombo" local:Tr.Key="ComboTransport.Header" Header="Транспорт" SelectedIndex="0" HorizontalAlignment="Stretch">
+                            <ComboBoxItem Content="UDP" Tag="udp" />
+                            <ComboBoxItem Content="TCP" Tag="tcp" />
+                            <ComboBoxItem Content="TLS" Tag="tls" />
+                        </ComboBox>
+                        <TextBox x:Name="ExpiresBox" local:Tr.Key="BoxExpires.Header" Header="Таймаут регистрации (сек)" PlaceholderText="3600" />
+
+                        <Button local:Tr.Key="BtnSave.Content" Content="Сохранить" Style="{StaticResource AccentButtonStyle}"
+                                HorizontalAlignment="Stretch" Margin="0,4,0,0" Click="OnSaveAccountClick" />
+                        <Button x:Name="MakeDefaultButton" local:Tr.Key="BtnMakeDefault.Content" Content="Сделать основным"
+                                HorizontalAlignment="Stretch" Click="OnMakeDefaultClick" />
+                        <Button x:Name="DeleteAccountButton" local:Tr.Key="BtnDeleteAccount.Content" Content="Удалить аккаунт" Foreground="#C42B1C"
+                                HorizontalAlignment="Stretch" Click="OnDeleteAccountClick" />
+                    </StackPanel>
+                </ScrollViewer>
+            </Grid>
+
+            <!-- ============ Звонки и устройства ============ -->
+            <ScrollViewer x:Name="DevicesPanel" Visibility="Collapsed" Padding="12,10" VerticalScrollBarVisibility="Auto">
+                <StackPanel Spacing="12" MaxWidth="460" MinWidth="400" HorizontalAlignment="Left">
+                    <TextBlock local:Tr.Key="TitleDevices.Text" Text="Звонки и устройства" FontSize="22" FontWeight="SemiBold" />
+                    <ToggleSwitch x:Name="EchoSwitch" local:Tr.Key="SwEcho.Header" Header="Эхоподавитель" Toggled="OnEchoToggled" />
+                    <ComboBox x:Name="DtmfCombo" local:Tr.Key="ComboDtmf.Header" Header="Способ передачи DTMF" HorizontalAlignment="Stretch"
+                              SelectionChanged="OnDtmfChanged">
+                        <ComboBoxItem Content="RFC2833 (RTP)" Tag="rfc2833" />
+                        <ComboBoxItem Content="SIP INFO" Tag="info" />
+                    </ComboBox>
+                    <!-- Микрофон + его проверка -->
+                    <ComboBox x:Name="MicCombo" local:Tr.Key="ComboMic.Header" Header="Микрофон" HorizontalAlignment="Stretch"
+                              DisplayMemberPath="Name" SelectedValuePath="Id" SelectionChanged="OnMicChanged" />
+                    <Button x:Name="MicTestButton" local:Tr.Key="BtnCheckMic.Content" Content="Записать и прослушать" Click="OnTestMicClick" HorizontalAlignment="Left" Margin="0,2,0,0" />
+                    <TextBlock x:Name="MicStatusText" local:Tr.Key="LblCheckMic.Text" Text="Запишите несколько секунд и услышите себя" Foreground="Gray" FontSize="12" />
+
+                    <!-- Динамик + его проверка -->
+                    <ComboBox x:Name="SpeakerCombo" local:Tr.Key="ComboSpeaker.Header" Header="Динамик" HorizontalAlignment="Stretch"
+                              DisplayMemberPath="Name" SelectedValuePath="Id" SelectionChanged="OnSpeakerChanged" />
+                    <Button x:Name="SpeakerTestButton" local:Tr.Key="BtnCheckSpeaker.Content" Content="Проиграть тест" Click="OnTestSpeakerClick" HorizontalAlignment="Left" Margin="0,2,0,0" />
+
+                    <ComboBox x:Name="RingerCombo" local:Tr.Key="ComboRinger.Header" Header="Устройство звонка (где звонит рингтон)" HorizontalAlignment="Stretch"
+                              DisplayMemberPath="Name" SelectedValuePath="Id" SelectionChanged="OnRingerChanged" />
+
+                    <!-- Камера + её проверка -->
+                    <ComboBox x:Name="CameraCombo" local:Tr.Key="ComboCamera.Header" Header="Камера" HorizontalAlignment="Stretch"
+                              SelectionChanged="OnCameraChanged" />
+                    <Button x:Name="CameraTestButton" local:Tr.Key="BtnCheckCamera.Content" Content="Показать превью" Click="OnTestCameraClick" HorizontalAlignment="Left" Margin="0,2,0,0" />
+                    <TextBlock local:Tr.Key="LblCheckCamera.Text" Text="Превью откроется в отдельном окне" Foreground="Gray" FontSize="12" />
+
+                    <TextBlock local:Tr.Key="LblRingtone.Text" Text="Рингтон (WAV)" Foreground="Gray" FontSize="12" Margin="0,6,0,0" />
+                    <TextBlock x:Name="RingtoneText" Text="(по умолчанию)" FontSize="13" TextWrapping="Wrap" />
+                    <ComboBox x:Name="RingtoneCombo" local:Tr.Key="ComboRingtone.Header" Header="Встроенные рингтоны"
+                              HorizontalAlignment="Stretch" Margin="0,2,0,2"
+                              DisplayMemberPath="Display" SelectedValuePath="Path" SelectionChanged="OnRingtoneSelected" />
+                    <Grid ColumnSpacing="8">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <Button local:Tr.Key="BtnPickRingtone.Content" Grid.Column="0" Content="Выбрать…" HorizontalAlignment="Stretch" Click="OnPickRingtoneClick" />
+                        <Button x:Name="PlayRingtoneButton" local:Tr.Key="BtnPlayRingtone.Content" Grid.Column="1" Content="Прослушать" HorizontalAlignment="Stretch" Click="OnPlayRingtoneClick" />
+                        <Button local:Tr.Key="BtnDefaultRingtone.Content" Grid.Column="2" Content="По умолчанию" HorizontalAlignment="Stretch" Click="OnResetRingtoneClick" />
+                    </Grid>
+
+                    <TextBlock local:Tr.Key="LblRecordings.Text" Text="Папка для записей разговоров" Foreground="Gray" FontSize="12" Margin="0,6,0,0" />
+                    <TextBlock x:Name="RecordingsDirText" Text="—" FontSize="13" TextWrapping="Wrap" IsTextSelectionEnabled="True" />
+                    <Grid ColumnSpacing="8">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <Button local:Tr.Key="BtnPickRecordingsDir.Content" Grid.Column="0" Content="Выбрать…" HorizontalAlignment="Stretch" Click="OnPickRecordingsDirClick" />
+                        <Button local:Tr.Key="BtnOpenRecordingsDir.Content" Grid.Column="1" Content="Открыть папку" HorizontalAlignment="Stretch" Click="OnOpenRecordingsDirClick" />
+                        <Button local:Tr.Key="BtnDefaultRecordingsDir.Content" Grid.Column="2" Content="По умолчанию" HorizontalAlignment="Stretch" Click="OnResetRecordingsDirClick" />
+                    </Grid>
+                    <ToggleSwitch x:Name="AutoRecordSwitch" local:Tr.Key="SwAutoRecord.Header"
+                                  Header="Автоматически записывать все разговоры" Toggled="OnAutoRecordToggled" />
+                </StackPanel>
+            </ScrollViewer>
+
+            <!-- ============ Контакты ============ -->
+            <ScrollViewer x:Name="ContactsPanel" Visibility="Collapsed" Padding="12,10" VerticalScrollBarVisibility="Auto">
+                <StackPanel Spacing="12" MaxWidth="460" MinWidth="400" HorizontalAlignment="Left">
+                    <Grid Grid.Row="0" Margin="0,0,0,8">
+                        <TextBlock local:Tr.Key="TitleContacts.Text" Text="Контакты" FontSize="22" FontWeight="SemiBold" />
+                        <Button local:Tr.Key="BtnSave.Content" Content="Сохранить" Style="{StaticResource AccentButtonStyle}"
+                            HorizontalAlignment="Right" Click="OnSavePhonebookClick" />
+                    </Grid>
+                    <TextBlock local:Tr.Key="LblPhonebookDesc.Text" Text="Внешняя адресная книга загружается по HTTP (XML вида PhoneBook → DirectoryEntry)."
+                               Foreground="Gray" FontSize="12" TextWrapping="Wrap" />
+                    <TextBox x:Name="PhonebookUrlBox" local:Tr.Key="BoxPhonebookUrl.Header" Header="URL адресной книги"
+                             PlaceholderText="http://сервер:порт/phonebook.xml" />
+
+                    <!-- Опциональная HTTP-авторизация для удалённых книг (локальным не нужна). -->
+                    <TextBox x:Name="PhonebookUserBox" local:Tr.Key="BoxPhonebookUser.Header" Header="Логин (необязательно)" />
+                    <PasswordBox x:Name="PhonebookPassBox" local:Tr.Key="BoxPhonebookPass.Header"
+                                 Header="Пароль (пусто — оставить прежний)" PasswordRevealMode="Peek" />
+
+                    <TextBlock x:Name="PhonebookStatus" Foreground="Gray" FontSize="12" TextWrapping="Wrap" />
+                </StackPanel>
+            </ScrollViewer>
+
+            <!-- ============ Кодеки и шифрование ============ -->
+            <ScrollViewer x:Name="CodecsPanel" Visibility="Collapsed" Padding="12,10" VerticalScrollBarVisibility="Auto">
+                <StackPanel Spacing="12" MaxWidth="460" MinWidth="400" HorizontalAlignment="Left">
+                    <TextBlock local:Tr.Key="TitleCodecs.Text" Text="Кодеки и шифрование" FontSize="22" FontWeight="SemiBold" />
+                    <ComboBox x:Name="EncryptionCombo" local:Tr.Key="ComboEncryption.Header" Header="Шифрование медиа" HorizontalAlignment="Stretch"
+                              SelectionChanged="OnEncryptionChanged">
+                        <ComboBoxItem local:Tr.Key="EncNone.Content" Content="Нет" Tag="none" />
+                        <ComboBoxItem Content="SRTP" Tag="srtp" />
+                        <ComboBoxItem Content="ZRTP" Tag="zrtp" />
+                        <ComboBoxItem Content="DTLS" Tag="dtls" />
+                    </ComboBox>
+
+                    <TextBlock local:Tr.Key="LblAudioCodecs.Text" Text="Аудио кодеки (перетащите для приоритета)" FontWeight="SemiBold" Margin="0,8,0,0" />
+                    <ListView x:Name="AudioCodecsList" SelectionMode="None"
+                              CanReorderItems="True" AllowDrop="True" ReorderMode="Enabled"
+                              ItemTemplate="{StaticResource CodecTemplate}" />
+
+                    <TextBlock local:Tr.Key="LblVideoCodecs.Text" Text="Видео кодеки (перетащите для приоритета)" FontWeight="SemiBold" Margin="0,8,0,0" />
+                    <ListView x:Name="VideoCodecsList" SelectionMode="None"
+                              CanReorderItems="True" AllowDrop="True" ReorderMode="Enabled"
+                              ItemTemplate="{StaticResource CodecTemplate}" />
+                </StackPanel>
+            </ScrollViewer>
+
+            <!-- ============ Поведение ============ -->
+            <ScrollViewer x:Name="BehaviorPanel" Visibility="Collapsed" Padding="12,10" VerticalScrollBarVisibility="Auto">
+                <StackPanel Spacing="12" MaxWidth="460" MinWidth="400" HorizontalAlignment="Left">
+                    <TextBlock local:Tr.Key="TitleBehavior.Text" Text="Поведение" FontSize="22" FontWeight="SemiBold" />
+                    <ToggleSwitch x:Name="AutostartSwitch" local:Tr.Key="SwAutostart.Header" Header="Запускать вместе с Windows" Toggled="OnAutostartToggled" />
+                    <ToggleSwitch x:Name="TraySwitch" local:Tr.Key="SwTray.Header" Header="Сворачивать в трей при закрытии" Toggled="OnTrayToggled" />
+                    <ToggleSwitch x:Name="StartHiddenSwitch" local:Tr.Key="SwStartHidden.Header" Header="Запускать свёрнутым в трей" Toggled="OnStartHiddenToggled" />
+                    <ToggleSwitch x:Name="IncomingFrontSwitch" local:Tr.Key="SwIncomingFront.Header" Header="Показывать окно поверх при входящем" Toggled="OnIncomingFrontToggled" />
+                    <ToggleSwitch x:Name="PublishPresenceSwitch" local:Tr.Key="SwPublishPresence.Header" Header="Публиковать мой статус (коллеги видят меня)" Toggled="OnPublishPresenceToggled" />
+                    <ToggleSwitch x:Name="AutoAnswerSwitch" local:Tr.Key="SwAutoAnswer.Header" Header="Автоответ на входящие" Toggled="OnAutoAnswerToggled" />
+                    <NumberBox x:Name="AutoAnswerDelayBox" local:Tr.Key="BoxAutoAnswerDelay.Header" Header="Задержка автоответа (сек)"
+                               Value="0" Minimum="0" Maximum="60" SpinButtonPlacementMode="Inline"
+                               ValueChanged="OnAutoAnswerDelayChanged" HorizontalAlignment="Left" MinWidth="220" />
+                    <ToggleSwitch x:Name="ClickToCallSwitch" local:Tr.Key="SwClickToCall.Header"
+                                  Header="Открывать ссылки tel: и sip: (click-to-call)" Toggled="OnClickToCallToggled" />
+                    <ToggleSwitch x:Name="AutoRedialSwitch" local:Tr.Key="SwAutoRedial.Header" Header="Автодозвон при «занято»" Toggled="OnAutoRedialToggled" />
+                    <NumberBox x:Name="AutoRedialDelayBox" local:Tr.Key="BoxAutoRedialDelay.Header" Header="Интервал автодозвона (сек)"
+                               Value="30" Minimum="5" Maximum="600" SpinButtonPlacementMode="Inline"
+                               ValueChanged="OnAutoRedialDelayChanged" HorizontalAlignment="Left" MinWidth="220" />
+
+                    <!-- Номер прослушивания голосовой почты — его набирает конверт MWI в шапке. -->
+                    <TextBox x:Name="VoicemailNumberBox" local:Tr.Key="BoxVoicemail.Header" Header="Номер голосовой почты"
+                             PlaceholderText="*97" TextChanged="OnVoicemailNumberChanged"
+                             HorizontalAlignment="Left" MinWidth="220" />
+                </StackPanel>
+            </ScrollViewer>
+
+            <!-- ============ Дополнительно ============ -->
+            <ScrollViewer x:Name="AdvancedPanel" Visibility="Collapsed" Padding="12,10" VerticalScrollBarVisibility="Auto">
+                <StackPanel Spacing="12" MaxWidth="460" MinWidth="400" HorizontalAlignment="Left">
+                    <Grid Grid.Row="0" Margin="0,0,0,8">
+                        <TextBlock local:Tr.Key="TitleAdvanced.Text" Text="Дополнительно" FontSize="22" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                        <Button local:Tr.Key="BtnSave.Content" Content="Сохранить" Style="{StaticResource AccentButtonStyle}"
+                            HorizontalAlignment="Right" Click="OnSaveProvisioningClick" />
+                    </Grid>
+                    <ComboBox x:Name="LangCombo" local:Tr.Key="ComboLang.Header" Header="Язык" HorizontalAlignment="Stretch"
+                              SelectionChanged="OnLanguageChanged">
+                        <ComboBoxItem local:Tr.Key="LangSystem.Content" Content="Системный" Tag="" />
+                        <ComboBoxItem Content="Русский" Tag="ru" />
+                        <ComboBoxItem Content="English" Tag="en-US" />
+                        <ComboBoxItem Content="中文" Tag="zh-Hans" />
+                    </ComboBox>
+                    <ComboBox x:Name="ThemeCombo" local:Tr.Key="ComboTheme.Header" Header="Оформление" HorizontalAlignment="Stretch"
+                              SelectionChanged="OnThemeChanged">
+                        <ComboBoxItem local:Tr.Key="ThemeSystem.Content" Content="Системная" Tag="system" />
+                        <ComboBoxItem local:Tr.Key="ThemeLight.Content" Content="Светлая" Tag="light" />
+                        <ComboBoxItem local:Tr.Key="ThemeDark.Content" Content="Тёмная" Tag="dark" />
+                    </ComboBox>
+
+                    <TextBlock local:Tr.Key="LblNat.Text" Text="Сеть (NAT)" FontWeight="SemiBold" Margin="0,8,0,0" />
+                    <TextBox x:Name="StunBox" local:Tr.Key="BoxStun.Header" Header="STUN-сервер" PlaceholderText="stun.example.com:3478" />
+                    <ToggleSwitch x:Name="IceSwitch" local:Tr.Key="SwIce.Header" Header="Использовать ICE" />
+                    <ToggleSwitch x:Name="TurnSwitch" local:Tr.Key="SwTurn.Header" Header="Использовать TURN (релей через STUN-сервер)" />
+                    <TextBox x:Name="TurnUserBox" local:Tr.Key="BoxTurnUser.Header" Header="Логин TURN" />
+                    <PasswordBox x:Name="TurnPassBox" local:Tr.Key="BoxTurnPass.Header" Header="Пароль TURN (пусто — не менять)" />
+                    <!-- Realm задаёт сам TURN-сервер (coturn: realm= в turnserver.conf). Указав его,
+                         мы даём liblinphone сложить в linphonerc хеш ha1 вместо открытого пароля. -->
+                    <TextBox x:Name="TurnRealmBox" local:Tr.Key="BoxTurnRealm.Header" Header="Realm TURN (как на сервере)"
+                             PlaceholderText="example.com" />
+                    <Button local:Tr.Key="BtnApplyNat.Content" Content="Применить (сеть)" HorizontalAlignment="Left" Click="OnApplyNatClick" />
+
+                    <!-- Доверие TLS. Проверка сертификата включена по умолчанию и снимается только
+                         осознанно: половина АТС стоит на самоподписанных, и до этого клиент
+                         показывал пользователю голое «Failed» без причины. -->
+                    <TextBlock local:Tr.Key="LblTls.Text" Text="Шифрование сигнализации (TLS)" FontWeight="SemiBold" Margin="0,10,0,0" />
+                    <Grid ColumnSpacing="8">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <TextBox x:Name="CaFileBox" Grid.Column="0" local:Tr.Key="BoxCaFile.Header"
+                                 Header="Сертификат УЦ (PEM) — пусто: встроенный набор" IsReadOnly="True"
+                                 PlaceholderText="rootca.pem" />
+                        <Button x:Name="PickCaButton" Grid.Column="1" local:Tr.Key="BtnPickCa.Content" Content="Обзор…"
+                                VerticalAlignment="Bottom" Click="OnPickCaClick" />
+                        <Button x:Name="ClearCaButton" Grid.Column="2" local:Tr.Key="BtnClearCa.Content" Content="Сбросить"
+                                VerticalAlignment="Bottom" Click="OnClearCaClick" />
+                    </Grid>
+                    <ToggleSwitch x:Name="TlsVerifySwitch" local:Tr.Key="SwTlsVerify.Header"
+                                  Header="Проверять сертификат сервера" Toggled="OnTlsVerifyToggled" />
+                    <TextBlock x:Name="TlsWarnText" local:Tr.Key="LblTlsWarn.Text" Visibility="Collapsed"
+                               Text="Проверка выключена: соединение шифруется, но подлинность сервера не подтверждается — возможна подмена."
+                               TextWrapping="Wrap" FontSize="12"
+                               Foreground="{ThemeResource SystemFillColorCautionBrush}" />
+                    <Button local:Tr.Key="BtnApplyTls.Content" Content="Применить (TLS)" HorizontalAlignment="Left" Click="OnApplyTlsClick" />
+                    <TextBlock x:Name="TlsStatus" TextWrapping="Wrap" FontSize="12" />
+
+                    <!-- Обновления. Проверка фоновая, установка — только с согласия: оператор
+                         не должен получить перезапуск клиента посреди рабочего дня. -->
+                    <TextBlock local:Tr.Key="LblUpdates.Text" Text="Обновления" FontWeight="SemiBold" Margin="0,10,0,0" />
+                    <ToggleSwitch x:Name="UpdateCheckSwitch" local:Tr.Key="SwUpdateCheck.Header"
+                                  Header="Проверять обновления при запуске" Toggled="OnUpdateCheckToggled" />
+                    <Button x:Name="CheckUpdateButton" local:Tr.Key="BtnCheckUpdate.Content"
+                            Content="Проверить сейчас" HorizontalAlignment="Left" Click="OnCheckUpdateClick" />
+
+                    <TextBlock local:Tr.Key="LblProvisioning.Text" Text="Удалённое конфигурирование" FontWeight="SemiBold" Margin="0,10,0,0" />
+                    <TextBlock local:Tr.Key="LblProvisioningDesc.Text" Text="При запуске приложение скачает настройки по этому адресу (provisioning)."
+                               Foreground="Gray" FontSize="12" TextWrapping="Wrap" />
+                    <TextBox x:Name="ProvisioningUrlBox" local:Tr.Key="BoxProvisioningUrl.Header" Header="URL удалённого конфигурирования"
+                             PlaceholderText="https://сервер/provisioning.xml" />
+
+                    <TextBlock local:Tr.Key="LblPbxHook.Text" Text="Интеграция с АТС" FontWeight="SemiBold" Margin="0,10,0,0" />
+                    <TextBlock local:Tr.Key="LblPbxHookDesc.Text"
+                               Text="При смене статуса клиент дёрнет этот URL, чтобы АТС узнала о нём (CustomPresence): dnd заворачивает звонки, away — только показ. Плейсхолдеры: {ext} — номер аккаунта, {state} — available/away/dnd."
+                               Foreground="Gray" FontSize="12" TextWrapping="Wrap" />
+                    <TextBox x:Name="PresenceHookUrlBox" local:Tr.Key="BoxPresenceHook.Header" Header="URL уведомления о статусе"
+                             PlaceholderText="http://атс:8091/prov/status?ext={ext}&amp;state={state}" />
+                    <PasswordBox x:Name="PresenceHookSecretBox" local:Tr.Key="BoxPresenceHookSecret.Header"
+                                 Header="Секрет подписи (пусто — без подписи)" PasswordRevealMode="Peek" />
+
+                    <TextBlock x:Name="ProvisioningStatus" Foreground="Gray" FontSize="12" TextWrapping="Wrap" />
+                    <TextBlock local:Tr.Key="LblRestartHint.Text" Text="Изменения применятся после перезапуска приложения."
+                               Foreground="Gray" FontSize="12" />
+                </StackPanel>
+            </ScrollViewer>
+
+            <!-- ============ О программе ============ -->
+            <ScrollViewer x:Name="AboutPanel" Visibility="Collapsed" Padding="12,10" VerticalScrollBarVisibility="Auto">
+                <StackPanel Spacing="14" MaxWidth="460" MinWidth="400" HorizontalAlignment="Left">
+                    <StackPanel Orientation="Horizontal" Spacing="14">
+                        <Image Source="ms-appx:///Assets/lphone.png" Width="56" Height="56" VerticalAlignment="Center" />
+                        <StackPanel VerticalAlignment="Center">
+                            <TextBlock Text="L-Phone" FontSize="24" FontWeight="SemiBold" />
+                            <TextBlock local:Tr.Key="LblTagline.Text" Text="Софтфон на liblinphone" Foreground="Gray" FontSize="12" />
+                        </StackPanel>
+                    </StackPanel>
+
+                    <StackPanel Orientation="Horizontal" Spacing="12">
+                        <FontIcon Glyph="&#xE946;" Foreground="#2B88D8" FontSize="22" VerticalAlignment="Center" />
+                        <StackPanel VerticalAlignment="Center">
+                            <TextBlock local:Tr.Key="LblVersion.Text" Text="Версия" Foreground="Gray" FontSize="12" />
+                            <TextBlock Text="L-Phone 1.0" FontSize="14" FontWeight="SemiBold" />
+                        </StackPanel>
+                    </StackPanel>
+                    <StackPanel Orientation="Horizontal" Spacing="12">
+                        <FontIcon Glyph="&#xE73E;" Foreground="#2BA84A" FontSize="22" VerticalAlignment="Center" />
+                        <StackPanel VerticalAlignment="Center">
+                            <TextBlock local:Tr.Key="LblLicense.Text" Text="Лицензия" Foreground="Gray" FontSize="12" />
+                            <TextBlock Text="GPLv3 / AGPLv3 на базе Linphone (Belledonne Communications)" FontSize="14" FontWeight="SemiBold" />
+                        </StackPanel>
+                    </StackPanel>
+                    <StackPanel Orientation="Horizontal" Spacing="12">
+                        <FontIcon Glyph="&#xE943;" Foreground="#2B88D8" FontSize="22" VerticalAlignment="Center" />
+                        <StackPanel VerticalAlignment="Center">
+                            <TextBlock Text="liblinphone SDK" Foreground="Gray" FontSize="12" />
+                            <TextBlock x:Name="AboutSdkText" Text="—" FontSize="14" FontWeight="SemiBold" />
+                        </StackPanel>
+                    </StackPanel>
+                    <StackPanel Orientation="Horizontal" Spacing="12">
+                        <FontIcon Glyph="&#xE950;" Foreground="#7E57C2" FontSize="22" VerticalAlignment="Center" />
+                        <StackPanel VerticalAlignment="Center">
+                            <TextBlock local:Tr.Key="LblRuntime.Text" Text="Рантайм" Foreground="Gray" FontSize="12" />
+                            <TextBlock x:Name="AboutRuntimeText" Text="—" FontSize="14" FontWeight="SemiBold" />
+                        </StackPanel>
+                    </StackPanel>
+
+                    <TextBlock local:Tr.Key="LblDiagnostics.Text" Text="Диагностика" FontSize="16" FontWeight="SemiBold" Margin="0,8,0,0" />
+                    <ToggleSwitch x:Name="VerboseLogsSwitch" local:Tr.Key="SwVerbose.Header" Header="Подробные логи" Toggled="OnVerboseLogsToggled" />
+                    <Grid ColumnSpacing="8">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <Button local:Tr.Key="BtnOpenLogs.Content" Grid.Column="0" Content="Открыть папку логов" HorizontalAlignment="Stretch" Click="OnOpenLogsClick" />
+                        <Button local:Tr.Key="BtnClearLogs.Content" Grid.Column="1" Content="Удалить логи" HorizontalAlignment="Stretch" Click="OnClearLogsClick" />
+                    </Grid>
+                    <Button x:Name="CollectDiagButton" local:Tr.Key="BtnCollectDiag.Content" Content="Собрать диагностику (ZIP на рабочий стол)"
+                            HorizontalAlignment="Stretch" Click="OnCollectDiagClick" />
+                    <TextBlock x:Name="DiagStatus" Foreground="Gray" FontSize="12" TextWrapping="Wrap" />
+                    <Expander local:Tr.Key="ExpLog.Header" Header="Лог приложения" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch">
+                        <ScrollViewer Height="240">
+                            <TextBlock x:Name="LogText" FontFamily="Consolas" FontSize="11" TextWrapping="Wrap" />
+                        </ScrollViewer>
+                    </Expander>
+                </StackPanel>
+            </ScrollViewer>
+        </Grid>
+    </NavigationView>
+</Window>

@@ -1,0 +1,50 @@
+name: CI
+
+# 114 тестов не запускались автоматически ни разу — этот файл и есть весь CI.
+# Сборка WinUI требует Windows-раннера; конфигурация та же, что и локально (x64).
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build-and-test:
+    runs-on: windows-latest
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: '10.0.x'
+
+      # LinphoneSDK едет со своего фида (gitlab.linphone.org, см. nuget.config), а тот
+      # с раннеров GitHub отвечает нестабильно — один прогон уже упал на NU1301 по таймауту.
+      # Кэш снимает с него нагрузку, повторы спасают от разовых обрывов.
+      - name: Cache NuGet
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ runner.os }}-${{ hashFiles('**/*.csproj', 'nuget.config') }}
+          restore-keys: nuget-${{ runner.os }}-
+
+      - name: Restore
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Continue'
+          for ($i = 1; $i -le 3; $i++) {
+            dotnet restore LinphoneWinUI.sln -p:Platform=x64
+            if ($LASTEXITCODE -eq 0) { exit 0 }
+            Write-Host "restore не удался (попытка $i из 3), повтор через 20 с"
+            Start-Sleep -Seconds 20
+          }
+          exit 1
+
+      - name: Build
+        run: dotnet build LinphoneWinUI.sln -c Release -p:Platform=x64 --no-restore
+
+      - name: Test
+        run: dotnet test LinphoneWinUI.Tests/LinphoneWinUI.Tests.csproj -c Release -p:Platform=x64 --no-build --verbosity normal

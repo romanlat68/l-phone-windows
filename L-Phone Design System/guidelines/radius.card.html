@@ -1,0 +1,27 @@
+<!-- @dsCard group="Spacing" viewport="700x150" name="Corner Radius" subtitle="4px controls · 8px cards · pill & round for call UI." -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<link rel="stylesheet" href="../styles.css" />
+<style>
+  body { margin: 0; font-family: var(--font-sans); background: var(--surface-card); color: var(--text-primary); }
+  .wrap { padding: 20px 24px; display: flex; gap: 18px; align-items: flex-start; }
+  .item { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+  .box { width: 76px; height: 56px; background: var(--surface-page); border: 1px solid var(--stroke-control); }
+  .round { background: var(--call-accept); border: 0; width: 56px; height: 56px; }
+  .pill { width: 96px; background: var(--call-accept); border: 0; }
+  .item .v { font-size: 11px; font-weight: var(--fw-semibold); }
+  .item .t { font-size: 10px; font-family: var(--font-mono); color: var(--text-tertiary); }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="item"><div class="box" style="border-radius:var(--radius-sm);"></div><span class="v">sm</span><span class="t">4px · controls</span></div>
+    <div class="item"><div class="box" style="border-radius:var(--radius-md);"></div><span class="v">md</span><span class="t">8px · cards</span></div>
+    <div class="item"><div class="box" style="border-radius:var(--radius-lg);"></div><span class="v">lg</span><span class="t">12px</span></div>
+    <div class="item"><div class="box pill" style="border-radius:var(--radius-pill);"></div><span class="v">pill</span><span class="t">call-pill</span></div>
+    <div class="item"><div class="box round" style="border-radius:var(--radius-round);"></div><span class="v">round</span><span class="t">avatar · FAB</span></div>
+  </div>
+</body>
+</html>

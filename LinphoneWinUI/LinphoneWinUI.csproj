@@ -1,0 +1,84 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows10.0.19041.0</TargetFramework>
+    <TargetPlatformMinVersion>10.0.17763.0</TargetPlatformMinVersion>
+    <RootNamespace>LinphoneWinUI</RootNamespace>
+    <AssemblyName>L-Phone</AssemblyName>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <ApplicationIcon>Assets\lphone.ico</ApplicationIcon>
+    <Platforms>x64</Platforms>
+    <RuntimeIdentifiers>win-x64</RuntimeIdentifiers>
+    <UseWinUI>true</UseWinUI>
+    <!-- WinUI-рантайм при старте ищет resources.pri; по умолчанию PRI назывался
+         LinphoneWinUI.pri → приложение падало (0xc000027b в Microsoft.UI.Xaml.dll). -->
+    <ProjectPriFileName>resources.pri</ProjectPriFileName>
+    <Nullable>enable</Nullable>
+    <LangVersion>latest</LangVersion>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <!-- Версия продукта: бампать при каждом релизе; попадает в шапку app.log и crash.log -->
+    <Version>1.1.0</Version>
+    <!-- Свой Main (Program.cs): единственный экземпляр приложения решается ДО создания App. -->
+    <DefineConstants>$(DefineConstants);DISABLE_XAML_GENERATED_MAIN</DefineConstants>
+
+    <!-- Unpackaged, self-contained: обычный .exe, рантайм WinAppSDK вшит, отдельная установка не нужна -->
+    <WindowsPackageType>None</WindowsPackageType>
+    <WindowsAppSDKSelfContained>true</WindowsAppSDKSelfContained>
+    <SelfContained>true</SelfContained>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- DPAPI (ProtectedData) для шифрования сохранённых SIP-паролей (cred.dat). -->
+    <PackageReference Include="System.Security.Cryptography.ProtectedData" Version="9.0.0" />
+    <!-- MVVM: ObservableObject, RelayCommand, [ObservableProperty]/[RelayCommand] генераторы. -->
+    <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.0" />
+    <PackageReference Include="CommunityToolkit.WinUI.Notifications" Version="7.1.2" />
+    <PackageReference Include="Microsoft.WindowsAppSDK" Version="2.1.3" />
+    <PackageReference Include="H.NotifyIcon.WinUI" Version="2.4.1" />
+    <!-- Официальный рантайм liblinphone (GitLab-фид, см. ..\nuget.config).
+         Пакет сам копирует нативные DLL в output, плагины в mediastreamer\plugins\,
+         грамматики/звонки/rootca в share\. ANGLE (libEGL/libGLESv2) тоже внутри пакета.
+         5.4.122 ближе всего к нашему P/Invoke (писался под 5.4.104); 5.5.4 — новее. -->
+    <PackageReference Include="LinphoneSDK.Windows" Version="5.4.122" />
+  </ItemGroup>
+
+  <!-- Юнит-тесты видят internal-типы (PhoneNumberUtils, MaskNumbers и т.п.) -->
+  <ItemGroup>
+    <InternalsVisibleTo Include="LinphoneWinUI.Tests" />
+  </ItemGroup>
+
+  <!-- Локализация интерфейса (ru/en/zh) -->
+  <ItemGroup>
+    <PRIResource Include="Strings\**\*.resw" />
+  </ItemGroup>
+
+  <!-- Логотип приложения (заголовок окна, панель задач, трей, «О программе») -->
+  <ItemGroup>
+    <Content Include="Assets\lphone.ico">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Assets\lphone-alert.ico">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Assets\lphone.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+
+  <!-- ANGLE (libEGL/libGLESv2) теперь приходит из пакета LinphoneSDK.Windows,
+       поэтому ручной бандл native\angle\ больше не подключаем (иначе дубликат в output).
+       Файлы в native\angle\ оставлены в репо на случай отката. -->
+
+  <!-- Подрезаем мусор из пакета LinphoneSDK.Windows, который он копирует в output:
+       HTML-документацию (content/doc → share/doc, ~60МБ и 100+ предупреждений PRI263)
+       и .pdb символы. Удаляем из Content уже после импорта пакетных targets,
+       но до раскладки по output (AssignTargetPaths). Грамматики/звонки/rootca/DLL остаются. -->
+  <Target Name="TrimLinphoneSdkContent" BeforeTargets="AssignTargetPaths">
+    <ItemGroup>
+      <Content Remove="@(Content)" Condition="$([System.String]::Copy('%(Content.FullPath)').Contains('\content\doc\'))" />
+      <Content Remove="@(Content)" Condition="'%(Content.Extension)' == '.pdb'" />
+    </ItemGroup>
+  </Target>
+
+</Project>

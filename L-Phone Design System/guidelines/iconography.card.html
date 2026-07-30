@@ -1,0 +1,60 @@
+<!-- @dsCard group="Brand" viewport="700x340" name="Iconography — Segoe Fluent / fluent-mdl2" subtitle="Thin Fluent line icons in slate; accent blue marks the active item. Segoe Fluent Icons native; Iconify fluent-mdl2 SVGs cross-platform." -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<link rel="stylesheet" href="../styles.css" />
+<style>
+  body { margin: 0; font-family: var(--font-sans); background: var(--surface-card); color: var(--text-primary); }
+  .wrap { padding: 18px 22px 20px; }
+  .lbl { font-size: 10px; letter-spacing: 0.05em; text-transform: uppercase; color: var(--text-tertiary); font-weight: var(--fw-semibold); margin: 0 0 8px; }
+
+  /* Faithful bottom-nav recreation */
+  .nav { display: flex; background: var(--surface-card); border: 1px solid var(--stroke-divider); border-radius: var(--radius-md); overflow: hidden; }
+  .tab { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 5px; padding: 11px 0 9px; }
+  .tab img { width: 26px; height: 26px; }
+  .tab span { font-size: 12px; line-height: 1; color: var(--lp-slate-300); }
+  .tab.active span { color: var(--accent-default); }
+
+  .ref { margin-top: 20px; }
+  .grid { display: grid; grid-template-columns: repeat(8, 1fr); gap: 6px; }
+  .ic { display: flex; flex-direction: column; align-items: center; gap: 7px; padding: 12px 4px; border-radius: var(--radius-sm); }
+  .ic img { width: 22px; height: 22px; }
+  .ic .n { font-size: 10px; color: var(--text-secondary); font-family: var(--font-mono); text-align: center; line-height: 1.3; }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <p class="lbl">Навигация — нижняя панель (как в приложении)</p>
+    <div class="nav">
+      <div class="tab active"><img src="https://api.iconify.design/fluent-mdl2/dialpad.svg?color=%2322334d&width=26&height=26" alt="Набор" /><span>Набор</span></div>
+      <div class="tab"><img src="https://api.iconify.design/fluent-mdl2/contact-card.svg?color=%236b7d92&width=26&height=26" alt="Контакты" /><span>Контакты</span></div>
+      <div class="tab"><img src="https://api.iconify.design/fluent-mdl2/clock.svg?color=%236b7d92&width=26&height=26" alt="Журнал" /><span>Журнал</span></div>
+      <div class="tab"><img src="https://api.iconify.design/fluent-mdl2/chat.svg?color=%236b7d92&width=26&height=26" alt="Разговоры" /><span>Разговоры</span></div>
+      <div class="tab"><img src="https://api.iconify.design/fluent-mdl2/company-directory.svg?color=%236b7d92&width=26&height=26" alt="Встречи" /><span>Встречи</span></div>
+    </div>
+
+    <div class="ref">
+      <p class="lbl">Глоссарий глифов — действия, звонок, статусы</p>
+      <div class="grid">
+        <div class="ic"><img src="https://api.iconify.design/fluent-mdl2/dialpad.svg?color=%2322334d&width=22&height=22" /><span class="n">dialpad</span></div>
+        <div class="ic"><img src="https://api.iconify.design/fluent-mdl2/contact-card.svg?color=%2322334d&width=22&height=22" /><span class="n">contact-card</span></div>
+        <div class="ic"><img src="https://api.iconify.design/fluent-mdl2/clock.svg?color=%2322334d&width=22&height=22" /><span class="n">clock</span></div>
+        <div class="ic"><img src="https://api.iconify.design/fluent-mdl2/chat.svg?color=%2322334d&width=22&height=22" /><span class="n">chat</span></div>
+        <div class="ic"><img src="https://api.iconify.design/fluent-mdl2/company-directory.svg?color=%2322334d&width=22&height=22" /><span class="n">meetings</span></div>
+        <div class="ic"><img src="https://api.iconify.design/fluent-mdl2/incoming-call.svg?color=%232ba84a&width=22&height=22" /><span class="n">incoming</span></div>
+        <div class="ic"><img src="https://api.iconify.design/fluent-mdl2/incoming-call.svg?color=%233a4f6f&width=22&height=22" style="transform:rotate(180deg)" /><span class="n">outgoing</span></div>
+        <div class="ic"><img src="https://api.iconify.design/fluent-mdl2/decline-call.svg?color=%23c42b1c&width=22&height=22" /><span class="n">hang-up</span></div>
+        <div class="ic"><img src="https://api.iconify.design/fluent-mdl2/microphone.svg?color=%2322334d&width=22&height=22" /><span class="n">mic</span></div>
+        <div class="ic"><img src="https://api.iconify.design/fluent-mdl2/video.svg?color=%2322334d&width=22&height=22" /><span class="n">video</span></div>
+        <div class="ic"><img src="https://api.iconify.design/fluent-mdl2/pause.svg?color=%2322334d&width=22&height=22" /><span class="n">hold</span></div>
+        <div class="ic"><img src="https://api.iconify.design/fluent-mdl2/switch.svg?color=%2322334d&width=22&height=22" /><span class="n">transfer</span></div>
+        <div class="ic"><img src="https://api.iconify.design/fluent-mdl2/settings.svg?color=%2322334d&width=22&height=22" /><span class="n">settings</span></div>
+        <div class="ic"><img src="https://api.iconify.design/fluent-mdl2/lock.svg?color=%2322334d&width=22&height=22" /><span class="n">encrypt</span></div>
+        <div class="ic"><img src="https://api.iconify.design/fluent-mdl2/search.svg?color=%2322334d&width=22&height=22" /><span class="n">search</span></div>
+        <div class="ic"><img src="https://api.iconify.design/fluent-mdl2/info.svg?color=%2322334d&width=22&height=22" /><span class="n">info</span></div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>
