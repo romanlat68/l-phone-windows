@@ -1001,6 +1001,9 @@ public sealed partial class SettingsWindow : Window
     // ---------------- О программе ----------------
     private void PopulateAbout()
     {
+        // Version, а не InformationalVersion: последняя у .NET несёт хвост с git-хэшем
+        // («1.2.0+81bdf5f…»), и он оказался бы прямо в окне «О программе».
+        AboutVersionText.Text = $"L-Phone {typeof(SettingsWindow).Assembly.GetName().Version?.ToString(3) ?? "?"}";
         AboutSdkText.Text = $"liblinphone {_linphone.CoreVersion}";
         AboutRuntimeText.Text = $".NET {Environment.Version} · WinUI 3";
         try { LogText.Text = File.Exists(LogFilePath) ? File.ReadAllText(LogFilePath) : ""; } catch { }

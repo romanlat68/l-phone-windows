@@ -1,5 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <assembly manifestVersion="1.0" xmlns="urn:schemas-microsoft-com:asm.v1">
+  <!-- Версия здесь НЕ та, что видит пользователь: в свойствах файла и в окне «О программе»
+       показывается ресурс версии из csproj (<Version>). assemblyIdentity нужен только для
+       side-by-side-привязки сборок и намеренно оставлен фиксированным — синхронизировать его
+       с релизной версией нечем и незачем. -->
   <assemblyIdentity version="1.0.0.0" name="LinphoneWinUI.app" />
 
   <compatibility xmlns="urn:schemas-microsoft-com:compatibility.v1">

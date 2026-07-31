@@ -363,7 +363,10 @@
                         <FontIcon Glyph="&#xE946;" Foreground="#2B88D8" FontSize="22" VerticalAlignment="Center" />
                         <StackPanel VerticalAlignment="Center">
                             <TextBlock local:Tr.Key="LblVersion.Text" Text="Версия" Foreground="Gray" FontSize="12" />
-                            <TextBlock Text="L-Phone 1.0" FontSize="14" FontWeight="SemiBold" />
+                            <!-- Заполняется из версии сборки в PopulateAbout: зашитая в разметку
+                                 версия неминуемо расходится с настоящей — так и вышло, «1.0»
+                                 показывалось и на 1.1.0, и на 1.2.0. -->
+                            <TextBlock x:Name="AboutVersionText" Text="L-Phone" FontSize="14" FontWeight="SemiBold" />
                         </StackPanel>
                     </StackPanel>
                     <StackPanel Orientation="Horizontal" Spacing="12">

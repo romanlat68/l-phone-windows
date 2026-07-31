@@ -14,6 +14,11 @@
 AppId={{B7E9F2A1-3C4D-4E5F-9A8B-1C2D3E4F5A6B}
 AppName={#MyApp}
 AppVersion={#MyVer}
+; Ресурс версии самого установщика: без него в свойствах файла Windows показывает пустоту,
+; и отличить два скачанных setup'а друг от друга можно только по имени файла.
+VersionInfoVersion={#MyVer}
+VersionInfoProductName={#MyApp}
+VersionInfoCompany=L-Phone
 AppPublisher=L-Phone
 DefaultDirName={autopf}\{#MyApp}
 DefaultGroupName={#MyApp}
