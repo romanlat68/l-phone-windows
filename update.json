@@ -1,5 +1,5 @@
 {
-  "version": "1.1.0",
-  "url": "https://github.com/romanlat68/l-phone-windows/releases/download/v1.1.0/L-Phone-Setup-1.1.0.exe",
-  "notes": "Настраиваемое доверие TLS (свой УЦ и самоподписанные сертификаты), подпись кода, автообновление с проверкой подписи, подтверждение звонка по ссылке на внешний сервер."
+  "version": "1.2.0",
+  "url": "https://github.com/romanlat68/l-phone-windows/releases/download/v1.2.0/L-Phone-Setup-1.2.0.exe",
+  "notes": "BLF стал настоящим пультом: лампа загорается, когда телефон коллеги звонит, а клик по мигающей плитке перехватывает вызов. Настраиваемое доверие TLS, session timers, исправлен чат с комнатой-двойником."
 }
