@@ -555,6 +555,42 @@ internal static class NativeMethods
     public static extern void linphone_core_verify_server_cn(IntPtr core, int enable);
 
     // --- NAT / STUN / ICE ---
+    // --- Произвольная подписка SUBSCRIBE/NOTIFY (для «Event: dialog», BLF) ---
+    // Возвращает LinphoneEvent с НАШЕЙ ссылкой — обязателен unref после terminate.
+    [DllImport(Lib, CallingConvention = Cdecl)]
+    public static extern IntPtr linphone_core_create_subscribe(
+        IntPtr core, IntPtr resource, [MarshalAs(UnmanagedType.LPUTF8Str)] string ev, int expires);
+
+    [DllImport(Lib, CallingConvention = Cdecl)]
+    public static extern int linphone_event_send_subscribe(IntPtr ev, IntPtr body);
+
+    [DllImport(Lib, CallingConvention = Cdecl)]
+    public static extern void linphone_event_terminate(IntPtr ev);
+
+    [DllImport(Lib, CallingConvention = Cdecl)]
+    public static extern void linphone_event_unref(IntPtr ev);
+
+    [DllImport(Lib, CallingConvention = Cdecl)]
+    public static extern void linphone_core_cbs_set_notify_received(IntPtr cbs, NotifyReceivedCb cb);
+
+    /// <summary>NOTIFY по нашей подписке. body — LinphoneContent (const, НЕ освобождать).</summary>
+    [UnmanagedFunctionPointer(Cdecl)]
+    public delegate void NotifyReceivedCb(
+        IntPtr core, IntPtr ev, [MarshalAs(UnmanagedType.LPUTF8Str)] string notifiedEvent, IntPtr body);
+
+    [DllImport(Lib, CallingConvention = Cdecl)]
+    public static extern IntPtr linphone_content_get_utf8_text(IntPtr content);
+
+    // Session timers (RFC 4028): периодический re-INVITE/UPDATE подтверждает, что звонок жив.
+    [DllImport(Lib, CallingConvention = Cdecl)]
+    public static extern void linphone_core_set_session_expires_value(IntPtr core, int seconds);
+
+    [DllImport(Lib, CallingConvention = Cdecl)]
+    public static extern int linphone_core_get_session_expires_value(IntPtr core);
+
+    [DllImport(Lib, CallingConvention = Cdecl)]
+    public static extern void linphone_core_set_session_expires_min_value(IntPtr core, int seconds);
+
     [DllImport(Lib, CallingConvention = Cdecl)]
     public static extern void linphone_core_set_user_agent(
         IntPtr core,
@@ -954,8 +990,26 @@ internal static class NativeMethods
     public static extern IntPtr linphone_core_get_calls(IntPtr core); // const bctbx_list, НЕ освобождать
 
     // --- Локальная конференция (все звонки в одну беседу) ---
+    // Устарело с 5.x, оставлено как запасной путь для сборок SDK без conference-API ниже.
     [DllImport(Lib, CallingConvention = Cdecl)]
     public static extern int linphone_core_add_all_to_conference(IntPtr core);
+
+    // Современный путь: параметры → конференция → добавление каждого звонка участником.
+    // create_* возвращают объекты с НАШЕЙ ссылкой — обязателен unref.
+    [DllImport(Lib, CallingConvention = Cdecl)]
+    public static extern IntPtr linphone_core_create_conference_params_2(IntPtr core, IntPtr conference);
+
+    [DllImport(Lib, CallingConvention = Cdecl)]
+    public static extern IntPtr linphone_core_create_conference_with_params(IntPtr core, IntPtr parms);
+
+    [DllImport(Lib, CallingConvention = Cdecl)]
+    public static extern int linphone_conference_add_participant(IntPtr conference, IntPtr call);
+
+    [DllImport(Lib, CallingConvention = Cdecl)]
+    public static extern void linphone_conference_unref(IntPtr conference);
+
+    [DllImport(Lib, CallingConvention = Cdecl)]
+    public static extern void linphone_conference_params_unref(IntPtr parms);
 
     [DllImport(Lib, CallingConvention = Cdecl)]
     public static extern int linphone_core_is_in_conference(IntPtr core);

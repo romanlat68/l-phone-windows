@@ -130,6 +130,12 @@ public sealed class LinphoneService : ISipService
     public void DeleteChat(string peer) => Post(() => _core.DeleteChat(peer));
 
     // ---------------- Presence ----------------
+    public event Action<string, DialogState>? DialogStateChanged
+    { add => _core.DialogStateChanged += value; remove => _core.DialogStateChanged -= value; }
+
+    public void SyncDialogSubscriptions(IEnumerable<string> extensions)
+    { var s = new List<string>(extensions); Post(() => _core.SyncDialogSubscriptions(s)); }
+
     public void SyncPresenceFriends(IEnumerable<string> peers)
     {
         var snapshot = new List<string>(peers);   // копия: задание исполнится позже, на другом потоке

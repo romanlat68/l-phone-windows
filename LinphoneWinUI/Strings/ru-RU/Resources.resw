@@ -214,6 +214,7 @@
   <data name="St_SavedRestart" xml:space="preserve"><value>Сохранено. Применится после перезапуска.</value></data>
   <data name="St_Checking" xml:space="preserve"><value>Проверка…</value></data>
   <data name="St_PhonebookLoaded" xml:space="preserve"><value>OK: загружено {0} контактов.</value></data>
+  <data name="St_PhonebookInsecureAuth" xml:space="preserve"><value>Внимание: книга загружается по http, поэтому логин и пароль передаются открытым текстом. Используйте https.</value></data>
   <data name="St_TransferToHeld" xml:space="preserve"><value>Соединить с удержанным</value></data>
   <data name="St_ReasonBusy" xml:space="preserve"><value>Занято</value></data>
   <data name="St_ReasonDeclined" xml:space="preserve"><value>Вызов отклонён</value></data>

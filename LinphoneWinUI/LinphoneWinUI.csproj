@@ -18,7 +18,7 @@
     <LangVersion>latest</LangVersion>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <!-- Версия продукта: бампать при каждом релизе; попадает в шапку app.log и crash.log -->
-    <Version>1.1.0</Version>
+    <Version>1.2.0</Version>
     <!-- Свой Main (Program.cs): единственный экземпляр приложения решается ДО создания App. -->
     <DefineConstants>$(DefineConstants);DISABLE_XAML_GENERATED_MAIN</DefineConstants>
 
@@ -30,9 +30,13 @@
 
   <ItemGroup>
     <!-- DPAPI (ProtectedData) для шифрования сохранённых SIP-паролей (cred.dat). -->
-    <PackageReference Include="System.Security.Cryptography.ProtectedData" Version="9.0.0" />
+    <PackageReference Include="System.Security.Cryptography.ProtectedData" Version="10.0.10" />
     <!-- MVVM: ObservableObject, RelayCommand, [ObservableProperty]/[RelayCommand] генераторы. -->
     <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.0" />
+    <!-- 7.1.2 — последняя выпущенная версия этого пакета, обновлять некуда. Это legacy-линия
+         UWP-уведомлений (ToastNotificationManagerCompat); современный путь для unpackaged
+         WinAppSDK — Microsoft.Windows.AppNotifications. Миграция не сделана осознанно: текущие
+         тосты с кнопками «Принять/Отклонить» работают, а переход затрагивает COM-активатор. -->
     <PackageReference Include="CommunityToolkit.WinUI.Notifications" Version="7.1.2" />
     <PackageReference Include="Microsoft.WindowsAppSDK" Version="2.1.3" />
     <PackageReference Include="H.NotifyIcon.WinUI" Version="2.4.1" />

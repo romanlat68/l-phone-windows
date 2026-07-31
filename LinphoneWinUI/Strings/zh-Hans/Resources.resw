@@ -214,6 +214,7 @@
   <data name="St_SavedRestart" xml:space="preserve"><value>已保存。重启后生效。</value></data>
   <data name="St_Checking" xml:space="preserve"><value>检查中…</value></data>
   <data name="St_PhonebookLoaded" xml:space="preserve"><value>OK：已加载 {0} 个联系人。</value></data>
+  <data name="St_PhonebookInsecureAuth" xml:space="preserve"><value>注意：通讯录通过 http 获取，用户名和密码将以明文传输。请改用 https。</value></data>
   <data name="St_TransferToHeld" xml:space="preserve"><value>与保持中的通话接通</value></data>
   <data name="St_ReasonBusy" xml:space="preserve"><value>占线</value></data>
   <data name="St_ReasonDeclined" xml:space="preserve"><value>呼叫被拒绝</value></data>

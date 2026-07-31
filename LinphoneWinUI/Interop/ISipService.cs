@@ -72,6 +72,13 @@ public interface ISipService : IDisposable
 
     // Presence
     void SyncPresenceFriends(IEnumerable<string> peers);
+
+    /// <summary>Подписка на состояние линий (BLF): presence отвечает «свободен ли»,
+    /// dialog — «звонит ли прямо сейчас». Перехват осмыслен только во втором случае.</summary>
+    void SyncDialogSubscriptions(IEnumerable<string> extensions);
+
+    /// <summary>Линия коллеги сменила состояние. Поднимается С ПОТОКА ЯДРА.</summary>
+    event Action<string, DialogState>? DialogStateChanged;
     void SetPresencePublish(bool on);
     PresenceStatus MyStatus { get; }
     void SetMyStatus(PresenceStatus s);

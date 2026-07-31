@@ -18,7 +18,25 @@ internal sealed partial class LinphoneCore
 
     private IntPtr BasicRoom(string peer)
     {
-        IntPtr peerAddr = linphone_core_interpret_url(_core, peer.Trim());
+        string p = (peer ?? "").Trim();
+        if (p.Length == 0) return IntPtr.Zero;
+
+        // Короткий номер (без домена) — сперва ищем УЖЕ СУЩЕСТВУЮЩУЮ переписку с этим абонентом.
+        // Иначе: входящее сообщение приходит с адреса АТС (sip:376@pbx.example.com), комната
+        // создаётся под ним, а при открытии чата по номеру «376» interpret_url дорисует домен
+        // аккаунта (sip:376@sip.example.com) — это ДРУГАЯ комната. Пользователь открывал пустой
+        // двойник и решал, что переписка пропала.
+        if (!p.Contains('@'))
+        {
+            string user = PhoneNumberUtils.SipUser(p);
+            if (user.Length > 0)
+            {
+                IntPtr existing = FindRoomByUser(user);
+                if (existing != IntPtr.Zero) return existing;
+            }
+        }
+
+        IntPtr peerAddr = linphone_core_interpret_url(_core, p);
         if (peerAddr == IntPtr.Zero) return IntPtr.Zero;
         try
         {
@@ -48,6 +66,27 @@ internal sealed partial class LinphoneCore
 
     /// <summary>Старый путь на случай отсутствия params-API в сборке SDK (address НЕ освобождаем — снаружи).</summary>
     private IntPtr LegacyRoom(IntPtr peerAddr) => linphone_core_get_chat_room(_core, peerAddr);
+
+    /// <summary>Комната с этим абонентом по user-части, без учёта домена (borrowed-указатель).
+    /// Если двойники уже накопились от прошлых версий — берём самую свежую по времени
+    /// последнего обновления: там лежит актуальная переписка.</summary>
+    private IntPtr FindRoomByUser(string user)
+    {
+        IntPtr best = IntPtr.Zero;
+        long bestUpdate = long.MinValue;
+        for (IntPtr it = linphone_core_get_chat_rooms(_core); it != IntPtr.Zero; it = bctbx_list_next(it))
+        {
+            IntPtr room = bctbx_list_get_data(it);
+            if (room == IntPtr.Zero) continue;
+            IntPtr addr = linphone_chat_room_get_peer_address(room);
+            if (addr == IntPtr.Zero) continue;
+            if (!string.Equals(PtrToUtf8(linphone_address_get_username(addr)), user, StringComparison.OrdinalIgnoreCase))
+                continue;
+            long updated = linphone_chat_room_get_last_update_time(room);
+            if (updated >= bestUpdate) { bestUpdate = updated; best = room; }
+        }
+        return best;
+    }
 
     private void OnMessageReceived(IntPtr core, IntPtr room, IntPtr message)
     {

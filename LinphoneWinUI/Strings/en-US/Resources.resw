@@ -223,6 +223,7 @@
   <data name="St_SavedRestart" xml:space="preserve"><value>Saved. Takes effect after restart.</value></data>
   <data name="St_Checking" xml:space="preserve"><value>Checking…</value></data>
   <data name="St_PhonebookLoaded" xml:space="preserve"><value>OK: {0} contacts loaded.</value></data>
+  <data name="St_PhonebookInsecureAuth" xml:space="preserve"><value>Warning: the address book is fetched over http, so the login and password travel in clear text. Use https.</value></data>
   <data name="St_TransferToHeld" xml:space="preserve"><value>Connect to held call</value></data>
   <data name="St_ReasonBusy" xml:space="preserve"><value>Busy</value></data>
   <data name="St_ReasonDeclined" xml:space="preserve"><value>Call declined</value></data>

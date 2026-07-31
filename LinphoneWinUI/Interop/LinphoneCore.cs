@@ -97,6 +97,7 @@ internal sealed partial class LinphoneCore : IDisposable
     private readonly NotifyPresenceReceivedCb _onPresence;
     private readonly TransferStateChangedCb _onTransfer;
     private readonly MessageWaitingIndicationChangedCb _onMwi;
+    private readonly NotifyReceivedCb _onNotify;   // держим ссылку: иначе GC съест делегат под нативным колбэком
 
     public event Action<LinphoneRegistrationState, string?>? RegistrationStateChanged;
     public event Action<CallEvent>? CallStateChanged;
@@ -141,6 +142,7 @@ internal sealed partial class LinphoneCore : IDisposable
         _onCall = OnCallStateChanged;
         _onMessage = OnMessageReceived;
         _onPresence = OnNotifyPresenceReceived;
+        _onNotify = OnNotifyReceived;
         _onTransfer = OnTransferStateChanged;
         _onMwi = OnMwiChanged;
     }
@@ -266,12 +268,41 @@ internal sealed partial class LinphoneCore : IDisposable
         }
         catch (EntryPointNotFoundException) { /* нет в этой сборке SDK */ }
 
+        // Session timers (RFC 4028). Раньше оставались на умолчаниях SDK и нигде не были
+        // задокументированы. Без них «повисший» звонок (собеседник пропал из сети, файрвол
+        // тихо съел путь) висит в интерфейсе вечно — особенно за строгими NAT, где BYE
+        // просто не доходит. Периодический re-INVITE/UPDATE подтверждает, что звонок жив,
+        // и снимает его, когда подтверждения нет. 1800 с — то же значение, что по умолчанию
+        // у Asterisk (sess_expires), поэтому стороны договариваются без спора; 90 с —
+        // минимум, предписанный RFC 4028. 0 в rc [app] session_expires выключает механизм.
+        try
+        {
+            // TryParse при неудаче ОБНУЛЯЕТ out-переменную, затирая значение по умолчанию,
+            // — поэтому дефолт восстанавливаем явно, а не полагаемся на инициализацию.
+            if (!int.TryParse(GetAppString("session_expires", "1800"), out int expires)) expires = 1800;
+            if (expires > 0)
+            {
+                linphone_core_set_session_expires_min_value(_core, 90);
+                linphone_core_set_session_expires_value(_core, expires);
+                Log?.Invoke($"Session timers: {expires} с (min 90)");
+            }
+            else Log?.Invoke("Session timers выключены (rc [app] session_expires=0)");
+        }
+        catch (EntryPointNotFoundException ex)
+        {
+            // Молча пропустить нельзя: «повисшие» звонки — симптом трудноуловимый, и знать,
+            // что механизм не включился, нужно заранее, а не при разборе жалобы.
+            Log?.Invoke("Session timers недоступны в этой сборке SDK: " + ex.Message);
+        }
+
         // 6. Колбэки до старта.
         _cbs = linphone_factory_create_core_cbs(_factory);
         linphone_core_cbs_set_registration_state_changed(_cbs, _onRegistration);
         linphone_core_cbs_set_call_state_changed(_cbs, _onCall);
         linphone_core_cbs_set_message_received(_cbs, _onMessage);
         linphone_core_cbs_set_notify_presence_received(_cbs, _onPresence);
+        try { linphone_core_cbs_set_notify_received(_cbs, _onNotify); }
+        catch (EntryPointNotFoundException) { Log?.Invoke("BLF: подписка на dialog недоступна в этой сборке SDK"); }
         try { linphone_core_cbs_set_transfer_state_changed(_cbs, _onTransfer); } catch { /* нет в этой сборке SDK */ }
         try { linphone_core_cbs_set_message_waiting_indication_changed(_cbs, _onMwi); } catch { /* нет в этой сборке SDK */ }
         linphone_core_add_callbacks(_core, _cbs);
@@ -373,15 +404,52 @@ internal sealed partial class LinphoneCore : IDisposable
         if (call != IntPtr.Zero) linphone_call_pause(call);
     }
 
-    /// <summary>Объединяет все текущие звонки (активный + удержанные) в локальную конференцию.</summary>
+    /// <summary>Объединяет все текущие звонки (активный + удержанные) в локальную конференцию.
+    /// Сначала современным путём (параметры → конференция → участники), потому что
+    /// linphone_core_add_all_to_conference объявлен устаревшим и в SDK 5.5 может исчезнуть —
+    /// тогда конференция отвалилась бы молча при обновлении рантайма. Старый путь остаётся
+    /// запасным для сборок SDK, где нового API ещё нет.</summary>
     public bool MergeCallsIntoConference()
     {
         if (_core == IntPtr.Zero || CallCount < 2) return false;
+        _conferenceActive = MergeViaConferenceApi() || MergeViaDeprecatedApi();
+        return _conferenceActive;
+    }
+
+    private bool MergeViaConferenceApi()
+    {
+        IntPtr prm = IntPtr.Zero, conf = IntPtr.Zero;
         try
         {
-            _conferenceActive = linphone_core_add_all_to_conference(_core) == 0;
-            return _conferenceActive;
+            prm = linphone_core_create_conference_params_2(_core, IntPtr.Zero);
+            if (prm == IntPtr.Zero) return false;
+            conf = linphone_core_create_conference_with_params(_core, prm);
+            if (conf == IntPtr.Zero) return false;
+
+            // Собираем указатели заранее: add_participant меняет состояние звонков,
+            // а список ядра при этом перестраивается.
+            var calls = new List<IntPtr>();
+            for (IntPtr it = linphone_core_get_calls(_core); it != IntPtr.Zero; it = bctbx_list_next(it))
+            {
+                IntPtr c = bctbx_list_get_data(it);
+                if (c != IntPtr.Zero) calls.Add(c);
+            }
+            int added = 0;
+            foreach (IntPtr c in calls)
+                if (linphone_conference_add_participant(conf, c) == 0) added++;
+            return added >= 2;   // конференция из одного участника смысла не имеет
         }
+        catch (EntryPointNotFoundException) { return false; }   // старая сборка SDK — пойдём запасным путём
+        finally
+        {
+            if (conf != IntPtr.Zero) { try { linphone_conference_unref(conf); } catch { } }
+            if (prm != IntPtr.Zero) { try { linphone_conference_params_unref(prm); } catch { } }
+        }
+    }
+
+    private bool MergeViaDeprecatedApi()
+    {
+        try { return linphone_core_add_all_to_conference(_core) == 0; }
         catch (EntryPointNotFoundException) { Log?.Invoke("Конференции нет в этой сборке SDK"); return false; }
         catch { return false; }
     }
@@ -517,6 +585,85 @@ internal sealed partial class LinphoneCore : IDisposable
     // Presence (статус коллег) — для избранного
     // ------------------------------------------------------------------
     private void OnNotifyPresenceReceived(IntPtr core, IntPtr friend) => PresenceChanged?.Invoke();
+
+    // ------------------------------------------------------------------
+    // BLF: подписка «Event: dialog» (dialog-info+xml, RFC 4235)
+    // ------------------------------------------------------------------
+    /// <summary>Линия коллеги сменила состояние: номер и что с ним. Поднимается С ПОТОКА ЯДРА.</summary>
+    public event Action<string, DialogState>? DialogStateChanged;
+
+    // Активные подписки: номер → LinphoneEvent (наша ссылка, освобождаем при отписке).
+    private readonly Dictionary<string, IntPtr> _dialogSubs = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>Подписаться на состояние линий указанных внутренних. Повторный вызов
+    /// досоздаёт недостающие и снимает лишние — список избранного меняется на ходу.
+    /// Presence отвечает на вопрос «свободен ли», dialog — «звонит ли прямо сейчас»;
+    /// перехват осмыслен только во втором случае, поэтому нужна отдельная подписка.</summary>
+    public void SyncDialogSubscriptions(IEnumerable<string> extensions)
+    {
+        if (_core == IntPtr.Zero) return;
+        var want = new HashSet<string>(
+            extensions.Select(PhoneNumberUtils.SipUser).Where(e => e.Length > 0),
+            StringComparer.OrdinalIgnoreCase);
+
+        foreach (string gone in _dialogSubs.Keys.Where(k => !want.Contains(k)).ToList())
+            UnsubscribeDialog(gone);
+
+        foreach (string ext in want)
+        {
+            if (_dialogSubs.ContainsKey(ext)) continue;
+            IntPtr ev = SubscribeDialog(ext);
+            if (ev != IntPtr.Zero) _dialogSubs[ext] = ev;
+        }
+    }
+
+    private IntPtr SubscribeDialog(string ext)
+    {
+        IntPtr addr = linphone_core_interpret_url(_core, ext);
+        if (addr == IntPtr.Zero) { Log?.Invoke($"BLF {ext}: адрес не разобран"); return IntPtr.Zero; }
+        try
+        {
+            // 3600 с — как у presence-подписок SDK; сервер вправе укоротить, liblinphone продлит сам.
+            IntPtr ev = linphone_core_create_subscribe(_core, addr, "dialog", 3600);
+            if (ev == IntPtr.Zero) { Log?.Invoke($"BLF {ext}: create_subscribe вернул NULL"); return IntPtr.Zero; }
+            int rc = linphone_event_send_subscribe(ev, IntPtr.Zero);
+            if (rc != 0)
+            {
+                // Молчать нельзя: без этой строки «пульт не работает» неотличимо от
+                // «подписка не поддерживается сервером».
+                Log?.Invoke($"BLF {ext}: send_subscribe вернул {rc}");
+                try { linphone_event_unref(ev); } catch { }
+                return IntPtr.Zero;
+            }
+            return ev;
+        }
+        catch (EntryPointNotFoundException) { Log?.Invoke($"BLF {ext}: нет API подписки в сборке SDK"); return IntPtr.Zero; }
+        finally { linphone_address_unref(addr); }
+    }
+
+    private void UnsubscribeDialog(string ext)
+    {
+        if (!_dialogSubs.Remove(ext, out IntPtr ev) || ev == IntPtr.Zero) return;
+        try { linphone_event_terminate(ev); } catch { }
+        try { linphone_event_unref(ev); } catch { }
+    }
+
+    /// <summary>NOTIFY по нашей подписке. Событий может быть несколько видов — берём только dialog;
+    /// presence приходит своим колбэком и разбирается SDK.</summary>
+    private void OnNotifyReceived(IntPtr core, IntPtr ev, string notifiedEvent, IntPtr body)
+    {
+        try
+        {
+            if (!string.Equals(notifiedEvent, "dialog", StringComparison.OrdinalIgnoreCase)) return;
+            if (body == IntPtr.Zero) return;
+            string xml = PtrToUtf8(linphone_content_get_utf8_text(body)) ?? "";
+            string ext = DialogInfoParser.Entity(xml);
+            var state = DialogInfoParser.Parse(xml);
+            // Тело не разобрали — молчим: «не знаю» не должно гасить лампу.
+            if (ext.Length > 0 && state != DialogState.Unknown) DialogStateChanged?.Invoke(ext, state);
+        }
+        catch (Exception e) { Log?.Invoke("BLF: NOTIFY не разобран — " + e.Message); }
+    }
 
     /// <summary>MWI (message-summary) от АТС — новые сообщения голосовой почты. Asterisk шлёт
     /// unsolicited NOTIFY (mailbox на endpoint'е) — подписка не нужна, linphoneEvent = Zero.</summary>

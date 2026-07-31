@@ -94,6 +94,11 @@ public sealed class FakeSipService : ISipService
 
     // --- Presence ---
     public void SyncPresenceFriends(IEnumerable<string> peers) => SyncedPresencePeers.AddRange(peers);
+    public List<string> SyncedDialogPeers { get; } = new();
+    public void SyncDialogSubscriptions(IEnumerable<string> extensions) => SyncedDialogPeers.AddRange(extensions);
+#pragma warning disable CS0067 // тестовый двойник события не поднимает
+    public event Action<string, DialogState>? DialogStateChanged;
+#pragma warning restore CS0067
     public void SetPresencePublish(bool on) { }
     public PresenceStatus MyStatus => PresenceStatus.Available;
     public void SetMyStatus(PresenceStatus s) { }

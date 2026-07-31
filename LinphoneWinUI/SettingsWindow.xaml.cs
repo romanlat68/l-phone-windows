@@ -947,6 +947,11 @@ public sealed partial class SettingsWindow : Window
             var (user, pass) = _linphone.GetPhonebookAuth();   // пароль мог остаться прежним
             var list = await Phonebook.FetchAsync(url, user, pass);
             PhonebookStatus.Text = string.Format(Loc.S("St_PhonebookLoaded"), list.Count);
+            // Сама книга по http — осознанный риск (подмена номеров), но с логином туда уезжают
+            // ещё и учётные данные: Basic-авторизация передаёт их в заголовке открытым текстом.
+            // Молча этого не оставляем — пользователь должен знать, что именно он включил.
+            if (url.StartsWith("http://", StringComparison.OrdinalIgnoreCase) && user.Length > 0)
+                PhonebookStatus.Text += "\n" + Loc.S("St_PhonebookInsecureAuth");
         }
         catch (Exception ex)
         {

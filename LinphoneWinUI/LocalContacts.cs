@@ -15,6 +15,12 @@ public static class LocalContacts
     private static readonly object Gate = new();
     private static List<ContactEntry>? _cache;
 
+    /// <summary>Куда жаловаться на отказ файла. Ставит MainWindow при старте.
+    /// Без этого канала провал записи был НЕВИДИМ: пользователь сохранял контакт, диалог
+    /// закрывался, книга в памяти обновлялась — а на диск ничего не легло, и после перезапуска
+    /// контакт исчезал. Молчать о потере пользовательских данных нельзя.</summary>
+    public static Action<string>? Log;
+
     private static string FilePath => Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "LinphoneWinUI", "contacts.dat");
 
@@ -52,6 +58,24 @@ public static class LocalContacts
         }
     }
 
+    /// <summary>Разбор строки файла: «id\tname\tnumber\tmobile». null — строку пропускаем.
+    /// Битая строка не должна ронять загрузку всей книги: файл правится и руками, и
+    /// прошлыми версиями, а потерять из-за одной строки все контакты недопустимо.</summary>
+    internal static ContactEntry? ParseLine(string? line)
+    {
+        if (string.IsNullOrWhiteSpace(line)) return null;
+        string[] p = line!.Split('\t');
+        if (p.Length < 4) return null;
+        string id = p[0].Trim();
+        if (id.Length == 0) return null;   // без стабильного Id запись нельзя ни править, ни удалять
+        return new ContactEntry(p[1], p[2], p[3], "", IsLocal: true, Id: id);
+    }
+
+    /// <summary>Сериализация записи. Поля прогоняются через SafeFile.Field: таб или перевод
+    /// строки в имени иначе сдвинули бы колонки и превратили запись в мусор при чтении.</summary>
+    internal static string FormatLine(ContactEntry c) =>
+        $"{c.Id}\t{SafeFile.Field(c.Name)}\t{SafeFile.Field(c.Number)}\t{SafeFile.Field(c.Mobile)}";
+
     private static List<ContactEntry> ReadFile()
     {
         var list = new List<ContactEntry>();
@@ -59,26 +83,23 @@ public static class LocalContacts
         {
             if (!File.Exists(FilePath)) return list;
             foreach (string line in File.ReadAllLines(FilePath))
-            {
-                if (string.IsNullOrWhiteSpace(line)) continue;
-                string[] p = line.Split('\t');
-                if (p.Length < 4) continue;
-                string id = p[0].Trim();
-                if (id.Length == 0) continue;
-                list.Add(new ContactEntry(p[1], p[2], p[3], "", IsLocal: true, Id: id));
-            }
+                if (ParseLine(line) is { } entry) list.Add(entry);
         }
-        catch { }
+        catch (Exception ex)
+        {
+            // Книгу не прочитали — пользователь увидит пустой список вместо своих контактов.
+            // Пустой список сам по себе не отличить от «контактов нет», поэтому пишем причину.
+            Log?.Invoke($"Локальные контакты: не удалось прочитать {FilePath} — {ex.Message}");
+        }
         return list;
     }
 
     private static void WriteFile(List<ContactEntry> list)
     {
-        try
+        try { SafeFile.WriteLines(FilePath, list.Select(FormatLine)); }
+        catch (Exception ex)
         {
-            SafeFile.WriteLines(FilePath, list.Select(c =>
-                $"{c.Id}\t{SafeFile.Field(c.Name)}\t{SafeFile.Field(c.Number)}\t{SafeFile.Field(c.Mobile)}"));
+            Log?.Invoke($"Локальные контакты: НЕ СОХРАНЕНЫ в {FilePath} — {ex.Message}");
         }
-        catch { }
     }
 }

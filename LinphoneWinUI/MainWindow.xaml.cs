@@ -98,6 +98,15 @@ public sealed partial class MainWindow : Window
         try { ToastNotificationManagerCompat.OnActivated += OnToastActivated; }
         catch (Exception ex) { EnqueueLog("Уведомления недоступны: " + ex.Message); }
 
+        // Отказ файла локальных контактов раньше уходил в никуда — см. LocalContacts.Log.
+        LocalContacts.Log = EnqueueLog;
+
+        // BLF: состояние линии коллеги. Событие приходит с потока ядра — маршалим в свой.
+        // Состояние линий меняется часто (каждый звонок коллеги — минимум два NOTIFY),
+        // поэтому в лог не пишем: состояние видно на пульте, а журнал бы захлебнулся.
+        _linphone.DialogStateChanged += (ext, state) =>
+            DispatcherQueue.TryEnqueue(() => FavoritesVm.SetDialogState(ext, state));
+
         try
         {
             _linphone.Start();
@@ -108,6 +117,10 @@ public sealed partial class MainWindow : Window
 
             long.TryParse(_linphone.GetAppString("history_seen", "0"), out _missedSeen);
             UpdateMissedBadge();
+            // Избранное грузим при старте, а не только при открытии вкладки: от него зависят
+            // подписки BLF (presence + dialog). Иначе лампы оживают лишь после того, как
+            // пользователь зайдёт на пульт, и первые секунды показывают неправду.
+            PopulateFavorites();
             // Единственный за сеанс разбор журнала ради кнопки повтора; дальше номер
             // поддерживает воронка исходящих (CallStateChanged) — на клике ядро не трогаем.
             DialerVm.LastDialed = ViewModels.HistoryViewModel.LastDialed(_linphone.GetCallHistory());
@@ -794,9 +807,25 @@ public sealed partial class MainWindow : Window
     private void OnFavoriteItemClick(object sender, ItemClickEventArgs e)
     {
         if (e.ClickedItem is not ViewModels.FavoriteRow r) return;
-        // Список — подставить в дайлер (как раньше); BLF-пульт — сразу звонок (это «пульт»).
-        if (FavoritesVm.GridView) { ShowSection(Tab.Dialer); _linphone.Call(r.Number); }
-        else PrefillDialer(r.Number);
+        if (!FavoritesVm.GridView) { PrefillDialer(r.Number); return; }   // список — подставить в дайлер
+
+        // Пульт ведёт себя как аппаратный BLF (Fanvil, Yealink): нажатие на МИГАЮЩУЮ клавишу
+        // перехватывает звонок, на спокойную — звонит коллеге. Раньше клик всегда звонил, и
+        // чтобы перехватить, приходилось лезть в контекстное меню — рефлекс оператора
+        // («вижу, что звонит — жму») приводил к исходящему вызову вместо перехвата.
+        if (r.IsRinging && r.CanPickup) { PickupCall(r.Number); return; }
+        ShowSection(Tab.Dialer);
+        _linphone.Call(r.Number);
+    }
+
+    /// <summary>Перехват звонка коллеги: feature-код Asterisk **&lt;ext&gt;.</summary>
+    private void PickupCall(string number)
+    {
+        string ext = SipUser(number);
+        if (ext.Length == 0) return;
+        ShowSection(Tab.Dialer);
+        _linphone.Call("**" + ext);
+        EnqueueLog($"Перехват звонка: **{ext}");
     }
 
     private void OnFavViewListClick(object sender, RoutedEventArgs e) => FavoritesVm.GridView = false;
@@ -806,11 +835,7 @@ public sealed partial class MainWindow : Window
     private void OnBlfPickup(object sender, RoutedEventArgs e)
     {
         if ((sender as FrameworkElement)?.DataContext is not ViewModels.FavoriteRow r || !r.CanPickup) return;
-        string ext = SipUser(r.Number);
-        if (ext.Length == 0) return;
-        ShowSection(Tab.Dialer);
-        _linphone.Call("**" + ext);
-        EnqueueLog($"Перехват звонка: **{ext}");
+        PickupCall(r.Number);
     }
 
     // Эмодзи/подпись presence — в ViewModels.PresenceUi (общее с избранным);
