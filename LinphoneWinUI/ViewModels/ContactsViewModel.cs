@@ -27,9 +27,22 @@ public partial class ContactsViewModel : ObservableObject
 
     public ObservableCollection<ContactEntry> Contacts { get; } = new();
 
-    [ObservableProperty] private string _searchQuery = "";
-    [ObservableProperty] private string _statusText = "";
-    [ObservableProperty] private bool _isEmpty;
+    [ObservableProperty] public partial string SearchQuery { get; set; } = "";
+
+    /// <summary>Группы из книги плюс пункт «Все группы» первым. Пустой список означает,
+    /// что группы в книге не заполнены — тогда и выбирать нечего.</summary>
+    public ObservableCollection<string> Groups { get; } = new();
+
+    /// <summary>Выбранная группа; пусто или «все» — фильтра нет.</summary>
+    [ObservableProperty] public partial string SelectedGroup { get; set; } = "";
+
+    /// <summary>Показывать ли выбор группы. Один пункт «Все группы» — это не выбор,
+    /// а лишний элемент в узком окне.</summary>
+    [ObservableProperty] public partial bool HasGroups { get; set; }
+
+    partial void OnSelectedGroupChanged(string value) => ApplyFilter();
+    [ObservableProperty] public partial string StatusText { get; set; } = "";
+    [ObservableProperty] public partial bool IsEmpty { get; set; }
 
     public ContactsViewModel(ISipService sip, Func<string, string> loc, Func<string, object[], string> locF)
     {
@@ -56,6 +69,7 @@ public partial class ContactsViewModel : ObservableObject
     private async Task LoadCoreAsync()
     {
         _all = Merge(Phonebook.LoadCached());
+        RefreshGroups();
         ApplyFilter();
 
         string url = _sip.GetPhonebookUrl();
@@ -71,6 +85,7 @@ public partial class ContactsViewModel : ObservableObject
             var (user, pass) = _sip.GetPhonebookAuth();   // удалённые книги — опционально под HTTP-авторизацией
             var book = await Phonebook.FetchAsync(url, user, pass);
             _all = Merge(book);
+            RefreshGroups();
             ApplyFilter();
             StatusText = _locF("St_ContactsCount", new object[] { _all.Count });
         }
@@ -86,6 +101,7 @@ public partial class ContactsViewModel : ObservableObject
     public void Refresh()
     {
         _all = Merge(Phonebook.LoadCached());
+        RefreshGroups();
         ApplyFilter();
     }
 
@@ -96,16 +112,56 @@ public partial class ContactsViewModel : ObservableObject
     private void ApplyFilter()
     {
         string q = (SearchQuery ?? "").Trim();
-        IEnumerable<ContactEntry> items = _all;
-        if (q.Length > 0)
-            items = _all.Where(c =>
-                c.Name.Contains(q, StringComparison.CurrentCultureIgnoreCase) ||
-                c.Number.Contains(q, StringComparison.OrdinalIgnoreCase) ||
-                c.Mobile.Contains(q, StringComparison.OrdinalIgnoreCase));
+        IEnumerable<ContactEntry> items = Filter(_all, q, SelectedGroup, AllGroupsLabel);
 
         Contacts.Clear();
         foreach (var c in items) Contacts.Add(c);
         IsEmpty = Contacts.Count == 0;
+    }
+
+    /// <summary>Подпись пункта «все группы». Держим в поле, чтобы сравнивать с выбранным
+    /// значением, не полагаясь на язык интерфейса.</summary>
+    public string AllGroupsLabel => _loc("Grp_All");
+
+    /// <summary>Отбор контактов: поиск по имени и всем номерам плюс фильтр по группе.
+    /// Статикой и без обращений к ядру — это решает, что человек увидит в списке,
+    /// и должно проверяться тестами.</summary>
+    public static IEnumerable<ContactEntry> Filter(
+        IEnumerable<ContactEntry> all, string? query, string? group, string allGroupsLabel)
+    {
+        IEnumerable<ContactEntry> items = all;
+
+        if (!string.IsNullOrWhiteSpace(group) && group != allGroupsLabel)
+            items = items.Where(c => string.Equals(c.Group, group, StringComparison.CurrentCultureIgnoreCase));
+
+        string q = (query ?? "").Trim();
+        if (q.Length == 0) return items;
+
+        // Ищем по ВСЕМ номерам, а не только по основному и мобильному: контакт с тремя
+        // номерами не должен теряться из-за того, что искали по третьему.
+        return items.Where(c =>
+            c.Name.Contains(q, StringComparison.CurrentCultureIgnoreCase) ||
+            c.AllNumbers.Any(n => n.Number.Contains(q, StringComparison.OrdinalIgnoreCase)));
+    }
+
+    /// <summary>Перечитать список групп из загруженной книги.</summary>
+    private void RefreshGroups()
+    {
+        var names = _all.Select(c => c.Group)
+                        .Where(g => !string.IsNullOrWhiteSpace(g))
+                        .Distinct(StringComparer.CurrentCultureIgnoreCase)
+                        .OrderBy(g => g, StringComparer.CurrentCultureIgnoreCase)
+                        .ToList();
+
+        string keep = SelectedGroup;
+        Groups.Clear();
+        Groups.Add(AllGroupsLabel);
+        foreach (var g in names) Groups.Add(g);
+        HasGroups = names.Count > 0;
+
+        // Выбранная группа могла исчезнуть из книги — тогда возвращаемся ко «всем»,
+        // иначе список молча опустеет и человек решит, что контакты пропали.
+        SelectedGroup = Groups.Contains(keep) ? keep : AllGroupsLabel;
     }
 
     /// <summary>Кнопка-трубка / контекстное «Позвонить»: звонок и просьба переключиться на набор.</summary>

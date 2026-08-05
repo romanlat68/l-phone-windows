@@ -7,6 +7,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using LinphoneWinUI.Interop;
+using LinphoneWinUI.ViewModels;   // PresenceUi — общий кэш кистей индикаторов
 using Microsoft.UI;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
@@ -19,7 +20,7 @@ namespace LinphoneWinUI;
 
 public sealed partial class SettingsWindow : Window
 {
-    private readonly LinphoneService _linphone;
+    private readonly ISipService _linphone;
     private readonly Action _onAccountChanged;
     private readonly Action<string> _onThemeChanged;
     private readonly Action _onBehaviorChanged;
@@ -37,10 +38,8 @@ public sealed partial class SettingsWindow : Window
     private MediaPlayer? _testPlayer;         // воспроизведение проверочных звуков (тон/запись)
     private bool _cameraPreviewOn;            // открыто ли превью камеры (его рисует liblinphone)
 
-    private static readonly string LogFilePath = Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "LinphoneWinUI", "app.log");
 
-    public SettingsWindow(LinphoneService linphone, Action onAccountChanged, Action<string> onThemeChanged,
+    public SettingsWindow(ISipService linphone, Action onAccountChanged, Action<string> onThemeChanged,
                           Action onBehaviorChanged, Action? onCheckUpdate = null)
     {
         _linphone = linphone;
@@ -65,6 +64,7 @@ public sealed partial class SettingsWindow : Window
             _ringPreview = null;
             StopTestPlayer();         // глушим проверочный звук
             StopDeviceTests();        // глушим замер микрофона и превью камеры
+            Interop.GlobalHotkeys.Resume(); // окно закрыли посреди захвата — вернуть сочетания
         };
 
         Nav.SelectedItem = Nav.MenuItems.OfType<NavigationViewItem>().FirstOrDefault();
@@ -79,9 +79,10 @@ public sealed partial class SettingsWindow : Window
         Tr.Set(NiAccount, "NavAccount.Content");
         Tr.Set(NiDevices, "NavDevices.Content");
         Tr.Set(NiContacts, "NavContacts.Content");
-        Tr.Set(NiCodecs, "NavCodecs.Content");
-        Tr.Set(NiBehavior, "NavBehavior.Content");
-        Tr.Set(NiAdvanced, "NavAdvanced.Content");
+        Tr.Set(NiCalls, "NavCalls.Content");
+        Tr.Set(NiIntegrations, "NavIntegrations.Content");
+        Tr.Set(NiNetwork, "NavNetwork.Content");
+        Tr.Set(NiApp, "NavApp.Content");
         Tr.Set(NiAbout, "NavAbout.Content");
     }
 
@@ -103,41 +104,79 @@ public sealed partial class SettingsWindow : Window
             if ((item.Tag as string) == tag) { Nav.SelectedItem = item; return; }
     }
 
+    private static Visibility Vis(bool on) => on ? Visibility.Visible : Visibility.Collapsed;
+
     private void OnNavSelectionChanged(NavigationView sender, NavigationViewSelectionChangedEventArgs args)
     {
         string tag = (args.SelectedItem as NavigationViewItem)?.Tag as string ?? "account";
         StopDeviceTests(); // уходя с вкладки устройств — глушим замер микрофона и превью камеры
-        AccountPanel.Visibility = tag == "account" ? Visibility.Visible : Visibility.Collapsed;
-        DevicesPanel.Visibility = tag == "devices" ? Visibility.Visible : Visibility.Collapsed;
-        ContactsPanel.Visibility = tag == "contacts" ? Visibility.Visible : Visibility.Collapsed;
-        CodecsPanel.Visibility = tag == "codecs" ? Visibility.Visible : Visibility.Collapsed;
-        BehaviorPanel.Visibility = tag == "behavior" ? Visibility.Visible : Visibility.Collapsed;
-        AdvancedPanel.Visibility = tag == "advanced" ? Visibility.Visible : Visibility.Collapsed;
-        AboutPanel.Visibility = tag == "about" ? Visibility.Visible : Visibility.Collapsed;
+
+        AccountPanel.Visibility = Vis(tag == "account");
+        DevicesPanel.Visibility = Vis(tag == "devices");
+        CallsPanel.Visibility = Vis(tag == "calls");
+        ContactsPanel.Visibility = Vis(tag == "contacts");
+        IntegrationsPanel.Visibility = Vis(tag == "integrations");
+        NetworkPanel.Visibility = Vis(tag == "network");
+        AppPanel.Visibility = Vis(tag == "app");
+        AboutPanel.Visibility = Vis(tag == "about");
 
         switch (tag)
         {
             case "account": PopulateAccount(); break;
             case "devices": PopulateDevices(); break;
+            case "calls": PopulateCalls(); break;
             case "contacts": PopulateContacts(); break;
-            case "codecs": PopulateCodecs(); break;
-            case "behavior": PopulateBehavior(); break;
-            case "advanced": PopulateAdvanced(); break;
+            case "integrations": PopulateIntegrations(); break;
+            case "network": PopulateNetwork(); break;
+            case "app": PopulateApp(); break;
             case "about": PopulateAbout(); break;
         }
     }
 
     // ---------------- Аккаунты (мультиаккаунт) ----------------
-    /// <summary>Строка списка аккаунтов (точка статуса + имя/sip + пометка «основной»).</summary>
-    private sealed class AccountRow
+    /// <summary>Строка списка аккаунтов (точка статуса + имя/sip + пометка «основной»).
+    ///
+    /// Наблюдаемая, потому что статус регистрации меняется часто и сам собой: одно нажатие
+    /// «Сохранить» даёт re-REGISTER, а тот — Progress (жёлтая точка) и Ok (зелёная). Пока
+    /// строки были неизменяемыми, каждое такое событие пересобирало весь список, и он
+    /// заметно моргал. Теперь меняется только цвет точки, на месте.</summary>
+    private sealed class AccountRow : CommunityToolkit.Mvvm.ComponentModel.ObservableObject
     {
-        public AccountInfo Info { get; init; }
-        public string Identity => Info.SipAddress;
-        public string Title { get; init; } = "";
-        public string Subtitle { get; init; } = "";
-        public Brush Dot { get; init; } = new SolidColorBrush(Colors.Gray);
-        public Visibility DefaultVisibility { get; init; }
+        private AccountInfo _info;
+        private string _title = "";
+        private string _subtitle = "";
+        private Brush _dot = PresenceUi.Brush(Colors.Gray);
+        private Visibility _defaultVisibility;
+
+        /// <summary>Данные аккаунта. Не наблюдаемое: в разметке не участвует, его читает форма.</summary>
+        public AccountInfo Info => _info;
+        public string Identity => _info.SipAddress;
+        public string Title { get => _title; private set => SetProperty(ref _title, value); }
+        public string Subtitle { get => _subtitle; private set => SetProperty(ref _subtitle, value); }
+        public Brush Dot { get => _dot; private set => SetProperty(ref _dot, value); }
+        public Visibility DefaultVisibility
+        {
+            get => _defaultVisibility;
+            private set => SetProperty(ref _defaultVisibility, value);
+        }
+
+        /// <summary>Переложить данные аккаунта в строку. Свойства, которые не изменились,
+        /// событий не поднимут — за этим следит SetProperty.</summary>
+        public void Apply(AccountInfo a)
+        {
+            _info = a;
+            Title = string.IsNullOrEmpty(a.DisplayName) ? a.Login : a.DisplayName;
+            Subtitle = a.SipAddress;
+            // Кисть из общего кэша: цветов всего четыре, и создавать их заново на каждое
+            // событие регистрации незачем (тот же приём, что на плитках пульта).
+            Dot = PresenceUi.Brush(StateColor(a.State));
+            DefaultVisibility = a.IsDefault ? Visibility.Visible : Visibility.Collapsed;
+        }
     }
+
+    /// <summary>Строки списка аккаунтов. Коллекция одна на всё время жизни окна — ItemsSource
+    /// ей назначается один раз, а меняется её содержимое.</summary>
+    private readonly ObservableCollection<AccountRow> _accountRows = new();
 
     private string? _editingIdentity; // sip аккаунта, открытого в форме; null = новый аккаунт
 
@@ -152,10 +191,37 @@ public sealed partial class SettingsWindow : Window
     {
         // Без перезагрузки формы сохраняем текущее выделение (чтобы фоновые re-register не сбивали ввод).
         string? keep = selectIdentity ?? (AccountsList.SelectedItem as AccountRow)?.Identity;
-        var rows = _linphone.GetAccounts().Select(ToRow).ToList();
+        var accounts = _linphone.GetAccounts();
+
         _loading = true;
-        AccountsList.ItemsSource = rows;
-        var sel = rows.FirstOrDefault(r => r.Identity == keep) ?? (reloadForm ? rows.FirstOrDefault() : null);
+        // Состав аккаунтов меняется только по кнопке, статусы — сами и постоянно. Пересобираем
+        // список ТОЛЬКО когда изменился состав: Clear() поднимает Reset, и ListView выбрасывает
+        // и создаёт заново все контейнеры — это и есть видимое моргание при «Сохранить».
+        // Сравниваем по адресам В ПОРЯДКЕ: множество совпало бы и при перестановке, а строки
+        // тогда разъехались бы с аккаунтами.
+        bool sameSet = _accountRows.Count == accounts.Count;
+        for (int i = 0; sameSet && i < accounts.Count; i++)
+            sameSet = _accountRows[i].Identity == accounts[i].SipAddress;
+
+        if (sameSet)
+        {
+            for (int i = 0; i < accounts.Count; i++) _accountRows[i].Apply(accounts[i]);
+        }
+        else
+        {
+            _accountRows.Clear();
+            foreach (var a in accounts)
+            {
+                var row = new AccountRow();
+                row.Apply(a);
+                _accountRows.Add(row);
+            }
+        }
+        if (AccountsList.ItemsSource is not ObservableCollection<AccountRow>)
+            AccountsList.ItemsSource = _accountRows;
+
+        var sel = _accountRows.FirstOrDefault(r => r.Identity == keep)
+                  ?? (reloadForm ? _accountRows.FirstOrDefault() : null);
         AccountsList.SelectedItem = sel;
         _loading = false;
 
@@ -165,15 +231,6 @@ public sealed partial class SettingsWindow : Window
             else ClearForm();
         }
     }
-
-    private static AccountRow ToRow(AccountInfo a) => new()
-    {
-        Info = a,
-        Title = string.IsNullOrEmpty(a.DisplayName) ? a.Login : a.DisplayName,
-        Subtitle = a.SipAddress,
-        Dot = new SolidColorBrush(StateColor(a.State)),
-        DefaultVisibility = a.IsDefault ? Visibility.Visible : Visibility.Collapsed,
-    };
 
     private static Windows.UI.Color StateColor(LinphoneRegistrationState state) => state switch
     {
@@ -326,7 +383,6 @@ public sealed partial class SettingsWindow : Window
         CameraCombo.ItemsSource = _linphone.GetCameras();
         CameraCombo.SelectedItem = _linphone.CurrentCamera;
         EchoSwitch.IsOn = _linphone.GetEchoCancellation();
-        SelectComboByTag(DtmfCombo, _linphone.GetDtmfMethod());
         PopulateRingtones();
         ShowRingtonePath(_linphone.GetRingtone());
         ShowRecordingsDir(_linphone.GetRecordingsDir());
@@ -355,7 +411,7 @@ public sealed partial class SettingsWindow : Window
         // Текущий свой файл (не из набора и не пустой) — добавим отдельным пунктом.
         bool isBuiltin = builtins.Any(p => p.Equals(current, StringComparison.OrdinalIgnoreCase));
         if (current.Length > 0 && !isBuiltin)
-            items.Add(new RingtoneItem(PrettyRingtoneName(current) + " (свой)", current));
+            items.Add(new RingtoneItem(Loc.F("St_RingtoneCustom", PrettyRingtoneName(current)), current));
 
         RingtoneCombo.ItemsSource = items;
         RingtoneCombo.SelectedValue = current.Length > 0 ? current : "";   // нет рингтона → «По умолчанию»
@@ -541,10 +597,10 @@ public sealed partial class SettingsWindow : Window
     /// </summary>
     private static string EnsureTestToneFile()
     {
-        string dir = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "LinphoneWinUI");
-        Directory.CreateDirectory(dir);
-        string path = Path.Combine(dir, "speaker-check.wav");
+        // В cache\, а не рядом с журналами: файл целиком воспроизводимый, его не жалко потерять,
+        // и в «папке логов», которую человек отправляет в поддержку, ему делать нечего.
+        Directory.CreateDirectory(AppPaths.Cache);
+        string path = Path.Combine(AppPaths.Cache, "speaker-check.wav");
         if (File.Exists(path)) return path;
 
         const int rate = 44100;
@@ -613,7 +669,7 @@ public sealed partial class SettingsWindow : Window
 
         // Каталог может быть под кириллическим профилем — mediastreamer не откроет файл.
         // ASCII short-path (8.3) чинит и запись, и последующее воспроизведение.
-        string dir = Path.GetDirectoryName(LogFilePath) ?? Path.GetTempPath();
+        string dir = AppPaths.Cache;   // запись проверки микрофона — не журнал
         try { Directory.CreateDirectory(dir); } catch { }
         _micWavPath = Interop.LinphoneCore.AsciiSafePath(Path.Combine(dir, "mic-test.wav"));
         if (!_linphone.StartMicRecording(_micWavPath))
@@ -676,26 +732,110 @@ public sealed partial class SettingsWindow : Window
     }
 
     // ---------------- Поведение (как в Zoiper) ----------------
-    private void PopulateBehavior()
+    /// <summary>Раздел «Звонки»: всё про сам разговор — от DTMF до записи.</summary>
+    private void PopulateCalls()
     {
         _loading = true;
-        AutostartSwitch.IsOn = Autostart.IsEnabled();
-        TraySwitch.IsOn = _linphone.GetAppFlag("minimize_to_tray", true);
-        StartHiddenSwitch.IsOn = _linphone.GetAppFlag("start_hidden", false);
-        IncomingFrontSwitch.IsOn = _linphone.GetAppFlag("incoming_to_front", false);
-        PublishPresenceSwitch.IsOn = _linphone.GetAppFlag("publish_presence", false);   // Asterisk PUBLISH не принимает
+        SelectComboByTag(DtmfCombo, _linphone.GetDtmfMethod());
+        PopulateCodecs();
+
         AutoAnswerSwitch.IsOn = _linphone.GetAppFlag("auto_answer", false);
         int.TryParse(_linphone.GetAppString("auto_answer_delay", "0"), out int autoDelay);
         AutoAnswerDelayBox.Value = autoDelay;
         AutoAnswerDelayBox.IsEnabled = AutoAnswerSwitch.IsOn;
+        IntercomSwitch.IsOn = _linphone.GetAppFlag("intercom_autoanswer", true);
         AutoRedialSwitch.IsOn = _linphone.GetAppFlag("auto_redial", false);
         int.TryParse(_linphone.GetAppString("auto_redial_delay", "30"), out int redialDelay);
         AutoRedialDelayBox.Value = redialDelay < 5 ? 30 : redialDelay;
         AutoRedialDelayBox.IsEnabled = AutoRedialSwitch.IsOn;
         VoicemailNumberBox.Text = _linphone.GetVoicemailNumber();
-        ClickToCallSwitch.IsOn = ClickToCall.IsRegistered();
+
+        ParkExtBox.Text = _linphone.GetAppString("park_ext", "");
+        ParkSlotsBox.Text = _linphone.GetAppString("park_slots", "");
+        ShowParkingSummary();
+
+        RecordingsDirText.Text = _linphone.GetRecordingsDir();
+        AutoRecordSwitch.IsOn = _linphone.GetAppFlag("auto_record", false);
+
         _loading = false;
         _behaviorReady = true;
+    }
+
+    /// <summary>Раздел «Приложение»: язык, оформление, окно, автозапуск, горячие клавиши.</summary>
+    private void PopulateApp()
+    {
+        _loading = true;
+        SelectComboByTag(ThemeCombo, _linphone.GetTheme());
+        SelectComboByTag(LangCombo, AppSettings.GetLanguage());
+
+        AutostartSwitch.IsOn = Autostart.IsEnabled();
+        TraySwitch.IsOn = _linphone.GetAppFlag("minimize_to_tray", true);
+        StartHiddenSwitch.IsOn = _linphone.GetAppFlag("start_hidden", false);
+        IncomingFrontSwitch.IsOn = _linphone.GetAppFlag("incoming_to_front", false);
+        PublishPresenceSwitch.IsOn = _linphone.GetAppFlag("publish_presence", false);   // Asterisk PUBLISH не принимает
+        AwayOnLockSwitch.IsOn = _linphone.GetAppFlag("away_on_lock", true);
+        MissedToastSwitch.IsOn = _linphone.GetAppFlag("missed_toast", true);
+
+        HotkeysSwitch.IsOn = _linphone.GetAppFlag("hotkeys", true);
+        RefreshHotkeyButtons();
+        MiniWindowSwitch.IsOn = _linphone.GetAppFlag("mini_call_window", true);
+        HotkeysStatus.Text = "";
+        _loading = false;
+    }
+
+    /// <summary>Раздел «Интеграции»: CRM, click-to-call, статус в АТС, провизионинг.</summary>
+    private void PopulateIntegrations()
+    {
+        _loading = true;
+        ApiSwitch.IsOn = _linphone.GetAppFlag("api_enabled", false);
+        ApiPortBox.Text = _linphone.GetAppString("api_port", "");
+        ApiTokenBox.Text = _linphone.GetApiToken();   // из DPAPI-хранилища, не из rc
+        ShowApiHint();
+
+        CallHookBox.Text = _linphone.GetAppString("call_hook_url", "");
+        CallHookBrowserSwitch.IsOn = _linphone.GetAppFlag("call_hook_browser", true);
+        CallHookIncomingSwitch.IsOn = _linphone.GetAppFlag("call_hook_incoming_only", true);
+
+        ClickToCallSwitch.IsOn = ClickToCall.IsRegistered();
+
+        PresenceHookUrlBox.Text = _linphone.GetAppString("presence_hook_url", "");
+        PresenceHookSecretBox.Password = _linphone.GetPresenceHookSecret();
+        ProvisioningUrlBox.Text = _linphone.GetProvisioningUri();
+        ProvisioningStatus.Text = "";
+        _loading = false;
+    }
+
+    /// <summary>Раздел «Сеть»: NAT и доверие TLS. Обе группы применяются кнопкой —
+    /// они перезапускают подсистему, и делать это на каждый символ нельзя.</summary>
+    private void PopulateNetwork()
+    {
+        _loading = true;
+        var (stun, ice, turn, turnUser) = _linphone.GetNat();
+        StunBox.Text = stun;
+        IceSwitch.IsOn = ice;
+        TurnSwitch.IsOn = turn;
+        TurnUserBox.Text = turnUser;
+        TurnPassBox.Password = "";   // пароль не читается обратно; пусто = оставить прежний
+        TurnRealmBox.Text = _linphone.GetAppString("turn_realm", "");
+        ShowTurnPassState();         // …поэтому говорим словами, есть он или нет
+        NetStatus.Text = "";
+
+        var (caFile, tlsVerify) = _linphone.GetTls();
+        // Бандл, приехавший с SDK, показываем как «пусто» — это состояние по умолчанию,
+        // а не выбор пользователя; свой файл виден полным путём.
+        CaFileBox.Text = IsBundledCa(caFile) ? "" : caFile;
+        TlsVerifySwitch.IsOn = tlsVerify;
+        TlsWarnText.Visibility = tlsVerify ? Visibility.Collapsed : Visibility.Visible;
+        TlsStatus.Text = "";
+        _loading = false;
+    }
+
+    /// <summary>Интерком: слушаться ли просьбы АТС ответить автоматически (Alert-Info).
+    /// По умолчанию включено — заголовок присылают намеренно, под интерком и оповещения;
+    /// выключение нужно тем, кого не устраивает, что телефон отвечает сам.</summary>
+    private void OnIntercomToggled(object sender, RoutedEventArgs e)
+    {
+        if (!_loading) _linphone.SetAppFlag("intercom_autoanswer", IntercomSwitch.IsOn);
     }
 
     private void OnClickToCallToggled(object sender, RoutedEventArgs e)
@@ -744,6 +884,20 @@ public sealed partial class SettingsWindow : Window
         if (!_loading) _linphone.SetAppFlag("incoming_to_front", IncomingFrontSwitch.IsOn);
     }
 
+    /// <summary>Статус «Отошёл» при блокировке станции: коллеги видят, что человека нет,
+    /// без единого его действия. Именно «Отошёл», а не «Не беспокоить» — тот заворачивает
+    /// звонки в почту, и включать это самовольно недопустимо.</summary>
+    private void OnAwayOnLockToggled(object sender, RoutedEventArgs e)
+    {
+        if (!_loading) _linphone.SetAppFlag("away_on_lock", AwayOnLockSwitch.IsOn);
+    }
+
+    /// <summary>Уведомление о пропущенном с кнопкой «Перезвонить».</summary>
+    private void OnMissedToastToggled(object sender, RoutedEventArgs e)
+    {
+        if (!_loading) _linphone.SetAppFlag("missed_toast", MissedToastSwitch.IsOn);
+    }
+
     private void OnPublishPresenceToggled(object sender, RoutedEventArgs e)
     {
         if (_loading) return;
@@ -767,39 +921,14 @@ public sealed partial class SettingsWindow : Window
     }
 
     // ---------------- Дополнительно (язык, тема, сеть, provisioning) ----------------
-    private void PopulateAdvanced()
-    {
-        _loading = true;
-        SelectComboByTag(ThemeCombo, _linphone.GetTheme());
-        SelectComboByTag(LangCombo, AppSettings.GetLanguage());
-        var (stun, ice, turn, turnUser) = _linphone.GetNat();
-        StunBox.Text = stun;
-        IceSwitch.IsOn = ice;
-        TurnSwitch.IsOn = turn;
-        TurnUserBox.Text = turnUser;
-        TurnPassBox.Password = "";   // пароль не читается обратно; пусто = оставить прежний
-        TurnRealmBox.Text = _linphone.GetAppString("turn_realm", "");   // ключ тот же, что в Android-клиенте
-        UpdateCheckSwitch.IsOn = _linphone.GetAppFlag("update_check", true);
-        var (caFile, tlsVerify) = _linphone.GetTls();
-        // Бандл, приехавший с SDK, показываем как «пусто» — это состояние по умолчанию,
-        // а не выбор пользователя; свой файл виден полным путём.
-        CaFileBox.Text = IsBundledCa(caFile) ? "" : caFile;
-        TlsVerifySwitch.IsOn = tlsVerify;
-        TlsWarnText.Visibility = tlsVerify ? Visibility.Collapsed : Visibility.Visible;
-        TlsStatus.Text = "";
-        ProvisioningUrlBox.Text = _linphone.GetProvisioningUri();
-        PresenceHookUrlBox.Text = _linphone.GetAppString("presence_hook_url", "");
-        PresenceHookSecretBox.Password = _linphone.GetPresenceHookSecret();
-        ProvisioningStatus.Text = "";
-        _loading = false;
-    }
-
     private void OnLanguageChanged(object sender, SelectionChangedEventArgs e)
     {
         if (_loading) return;
         string lang = (LangCombo.SelectedItem as ComboBoxItem)?.Tag as string ?? "";
         AppSettings.SetLanguage(lang);
-        ProvisioningStatus.Text = Loc.S("St_LangNote");
+        // Рядом с самим выбором: раньше это сообщение уходило в строку раздела «Интеграции»,
+        // и человек менял язык, не получая ни отклика, ни объяснения, почему ничего не изменилось.
+        LangNote.Text = Loc.S("St_LangNote");
     }
 
     private void OnThemeChanged(object sender, SelectionChangedEventArgs e)
@@ -815,10 +944,347 @@ public sealed partial class SettingsWindow : Window
     {
         string realm = TurnRealmBox.Text.Trim();
         _linphone.SetAppString("turn_realm", realm);
+        // В поле могут стоять наши же точки-заполнитель — тогда пароль НЕ меняли, и отправить
+        // их значило бы затереть настоящий пароль строкой из восьми точек. Пустая строка
+        // означает для SetNat «оставить прежний», это ровно то, что нужно.
+        string pass = _turnPassIsPlaceholder ? "" : TurnPassBox.Password;
+
         bool ok = _linphone.SetNat(StunBox.Text, IceSwitch.IsOn, TurnSwitch.IsOn,
-                                   TurnUserBox.Text, TurnPassBox.Password, realm);
+                                   TurnUserBox.Text, pass, realm);
         // Раньше «применено» печаталось безусловно, хотя SetNat умеет молча ничего не сделать.
-        ProvisioningStatus.Text = Loc.S(ok ? "St_NetApplied" : "St_NetApplyFailed");
+        NetStatus.Text = Loc.S(ok ? "St_NetApplied" : "St_NetApplyFailed");
+        // Новый пароль принят — снова показываем точки вместо введённого.
+        if (ok && !_turnPassIsPlaceholder) { TurnPassBox.Password = ""; ShowTurnPassState(); }
+    }
+
+    /// <summary>Сменили логин TURN — пароль у нового логина может быть свой (или никакого).</summary>
+    private void OnTurnUserChanged(object sender, RoutedEventArgs e)
+    {
+        if (!_loading) ShowTurnPassState();
+    }
+
+    /// <summary>Что стоит в поле пароля TURN — заполнитель, а не введённое пользователем.
+    /// В отличие от пароля книги и секрета хука, этот обратно НЕ читается: liblinphone держит
+    /// его в auth_info, а при заданном realm — только как хеш ha1. Показать нечего, поэтому
+    /// рисуем точки сами и следим, чтобы они не уехали на сервер вместо настоящего пароля.</summary>
+    private bool _turnPassIsPlaceholder;
+
+    /// <summary>Столько точек рисуем вместо нечитаемого пароля. Длина произвольная и НЕ равна
+    /// настоящей: показывать её значило бы подсказывать длину пароля тому, кто заглянул в экран.</summary>
+    private const string SecretPlaceholder = "••••••••";
+
+    /// <summary>Пустое поле не отличает «пароля нет» от «пароль сохранён и не читается обратно»,
+    /// а решения это разные: в первом случае TURN не заработает вовсе. Показываем точки, если
+    /// пароль есть, и поясняем словами под полем.</summary>
+    private void ShowTurnPassState()
+    {
+        string user = TurnUserBox.Text.Trim();
+        bool saved = user.Length > 0 && _linphone.HasTurnPassword(user);
+
+        TurnPassState.Text = user.Length == 0
+            ? ""   // без логина спрашивать про пароль нечего
+            : Loc.S(saved ? "St_TurnPassSaved" : "St_TurnPassMissing");
+
+        // Точки ставим, только если поле не трогали: затирать начатый ввод нельзя.
+        if (TurnPassBox.Password.Length > 0 && !_turnPassIsPlaceholder) return;
+        _turnPassIsPlaceholder = saved;
+        TurnPassBox.Password = saved ? SecretPlaceholder : "";
+        // Пока в поле заполнитель, «глазок» показал бы те же точки и только сбил бы с толку.
+        TurnPassBox.PasswordRevealMode = saved ? PasswordRevealMode.Hidden : PasswordRevealMode.Peek;
+    }
+
+    /// <summary>Щёлкнули поле, чтобы ввести новый пароль — убираем точки-заполнитель,
+    /// иначе человек дописывал бы свой пароль к ним.</summary>
+    private void OnTurnPassGotFocus(object sender, RoutedEventArgs e)
+    {
+        if (!_turnPassIsPlaceholder) return;
+        _turnPassIsPlaceholder = false;
+        TurnPassBox.Password = "";
+        TurnPassBox.PasswordRevealMode = PasswordRevealMode.Peek;
+    }
+
+    /// <summary>Ушли из поля, ничего не введя — возвращаем точки: пароль-то на месте,
+    /// и пустое поле снова выглядело бы как «пароля нет».</summary>
+    private void OnTurnPassLostFocus(object sender, RoutedEventArgs e)
+    {
+        if (TurnPassBox.Password.Length == 0) ShowTurnPassState();
+    }
+
+    // ---------------- Работа поверх других окон ----------------
+    /// <summary>Горячие клавиши занимаются СИСТЕМОЙ целиком, поэтому включение и выключение
+    /// применяется сразу: держать занятой комбинацию, которой пользователь только что
+    /// отказался пользоваться, нельзя — она перестанет работать в других программах.</summary>
+    private void OnCallHookChanged(object sender, RoutedEventArgs e)
+    {
+        if (_loading) return;
+        string url = CallHookBox.Text.Trim();
+        _linphone.SetAppString("call_hook_url", url);
+        _linphone.SetAppFlag("call_hook_browser", CallHookBrowserSwitch.IsOn);
+        _linphone.SetAppFlag("call_hook_incoming_only", CallHookIncomingSwitch.IsOn);
+
+        // Ссылку, которую нельзя открыть, лучше отвергнуть сразу: иначе о проблеме узнают
+        // на первом же входящем — в самый неподходящий момент.
+        ApiHint.Text = url.Length > 0 && CallHookBrowserSwitch.IsOn && !CallHook.IsBrowsable(
+                CallHook.Format(url, new CallHookData(CallHookEvent.Incoming, "377", "Тест", 0, "x")))
+            ? Loc.S("St_HookBadUrl")
+            : ApiHint.Text;
+    }
+
+    // ---------------- Локальный API для CRM ----------------
+    private void OnApiToggled(object sender, RoutedEventArgs e)
+    {
+        if (_loading) return;
+        // Токен создаём в момент включения, а не при первом запросе: пользователь должен
+        // увидеть его сразу, чтобы вставить в CRM.
+        if (ApiSwitch.IsOn && ApiTokenBox.Text.Trim().Length == 0)
+        {
+            ApiTokenBox.Text = LocalApi.LocalApiServer.NewToken();
+            _linphone.SetApiToken(ApiTokenBox.Text);
+        }
+        _linphone.SetAppFlag("api_enabled", ApiSwitch.IsOn);
+        ApplyApi();
+    }
+
+    private void OnApiSettingChanged(object sender, RoutedEventArgs e)
+    {
+        if (_loading) return;
+        string port = ApiPortBox.Text.Trim();
+        _linphone.SetAppString("api_port", port);
+        ApplyApi();
+    }
+
+    /// <summary>Новый токен. Старый перестаёт работать немедленно — это и есть смысл кнопки:
+    /// токен утёк, доступ отзываем.</summary>
+    private void OnApiNewToken(object sender, RoutedEventArgs e)
+    {
+        ApiTokenBox.Text = LocalApi.LocalApiServer.NewToken();
+        _linphone.SetApiToken(ApiTokenBox.Text);
+        ApplyApi();
+    }
+
+    private void OnApiCopyExample(object sender, RoutedEventArgs e)
+    {
+        var dp = new Windows.ApplicationModel.DataTransfer.DataPackage();
+        dp.SetText(ApiExampleUrl());
+        Windows.ApplicationModel.DataTransfer.Clipboard.SetContent(dp);
+        ApiHint.Text = Loc.S("St_ApiCopied");
+    }
+
+    private string ApiExampleUrl()
+    {
+        string port = ApiPortBox.Text.Trim();
+        if (port.Length == 0) port = LocalApi.LocalApiServer.DefaultPort.ToString();
+        return $"http://127.0.0.1:{port}/call?number=377&token={ApiTokenBox.Text.Trim()}";
+    }
+
+    private void ApplyApi()
+    {
+        ShowApiHint();
+        _onBehaviorChanged();   // главное окно перезапустит сервер с новыми настройками
+    }
+
+    private void ShowApiHint()
+    {
+        ApiHint.Text = ApiSwitch.IsOn ? ApiExampleUrl() : Loc.S("St_ApiOff");
+    }
+
+    /// <summary>Сохранить настройки парковки. Пустое поле — вернуться к умолчанию
+    /// (500 / 501-520): так на типовой Asterisk-конфигурации ничего настраивать не нужно.</summary>
+    private void OnParkingChanged(object sender, RoutedEventArgs e)
+    {
+        if (_loading) return;
+        _linphone.SetAppString("park_ext", ParkExtBox.Text.Trim());
+        _linphone.SetAppString("park_slots", ParkSlotsBox.Text.Trim());
+        ShowParkingSummary();
+        _onBehaviorChanged();   // главное окно перечитает слоты и переподпишется
+    }
+
+    /// <summary>Сколько слотов получилось. Строка вроде «501-20» разбору не поддаётся, и
+    /// сказать об этом надо сразу — иначе пульт парковки просто молча не появится.</summary>
+    private void ShowParkingSummary()
+    {
+        string spec = ParkSlotsBox.Text.Trim();
+        var slots = Interop.ParkingSlots.Parse(spec.Length == 0 ? "501-520" : spec);
+        ParkStatus.Text = slots.Count > 0
+            ? Loc.F("St_ParkSlotsOk", slots.Count, slots[0], slots[^1])
+            : Loc.S("St_ParkSlotsBad");
+    }
+
+    private void OnHotkeysToggled(object sender, RoutedEventArgs e)
+    {
+        if (_loading) return;
+        _linphone.SetAppFlag("hotkeys", HotkeysSwitch.IsOn);
+        HotkeyBox.IsEnabled = HotkeysSwitch.IsOn;
+        ApplyHotkeys();
+    }
+
+    // ---------------- Назначение горячих клавиш ----------------
+    // Ввод сочетания текстом («Ctrl+Alt+A») — не дело пользователя, поэтому кнопка переходит
+    // в режим захвата и ждёт нажатия. Занятость проверяем СРАЗУ, коротко заняв сочетание:
+    // иначе о конфликте с другой программой узнают только после перезапуска, а до тех пор
+    // человек жмёт клавишу и считает, что сломался софтфон.
+
+    private Interop.HotkeyAction? _capturing;
+    // Сочетания, которые занять не удалось: их держит другая программа. Помечаем прямо на
+    // кнопке — списком под сеткой пользователь не поймёт, какая из трёх клавиш мертва.
+    private HashSet<string> _hkFailed = new();
+
+    private Button ButtonFor(Interop.HotkeyAction a) => a switch
+    {
+        Interop.HotkeyAction.Answer => HkAnswerButton,
+        Interop.HotkeyAction.Hangup => HkHangupButton,
+        _ => HkMuteButton,
+    };
+
+    /// <summary>Показать текущие назначения. Пустое значение — «не назначено».</summary>
+    private void RefreshHotkeyButtons()
+    {
+        foreach (var action in Interop.GlobalHotkeys.AllActions)
+        {
+            var spec = EffectiveHotkey(action);
+            string text = spec?.Format() ?? Loc.S("Hk_NotSet");
+            var b = ButtonFor(action);
+            b.Content = text;
+            if (_hkFailed.Contains(text))
+            {
+                b.Foreground = (Brush)Application.Current.Resources["SystemFillColorCautionBrush"];
+                ToolTipService.SetToolTip(b, Loc.F("Hk_Taken", text));
+            }
+            else
+            {
+                b.ClearValue(Control.ForegroundProperty);
+                ToolTipService.SetToolTip(b, null);
+            }
+        }
+        // Назначать сочетания при выключенном переключателе бессмысленно и вводит в
+        // заблуждение: они всё равно не будут работать.
+        HotkeyBox.IsEnabled = HotkeysSwitch.IsOn;
+    }
+
+    private Interop.HotkeySpec? EffectiveHotkey(Interop.HotkeyAction action) =>
+        Interop.GlobalHotkeys.Effective(
+            action, _linphone.GetAppString(Interop.GlobalHotkeys.ConfigKey(action), ""));
+
+    private void OnCaptureHotkey(object sender, RoutedEventArgs e)
+    {
+        if (sender is not Button b || b.Tag is not string tag) return;
+        if (!Enum.TryParse(tag, out Interop.HotkeyAction action)) return;
+
+        _capturing = action;
+        // Пока идёт захват, свои сочетания надо отпустить: занятое системой сочетание
+        // приходит главному окну как WM_HOTKEY и до окна настроек не доходит вовсе —
+        // назначить Ctrl+Alt+H поверх Ctrl+Alt+H было бы невозможно, а Ctrl+Alt+A
+        // вместо захвата ответил бы на звонок.
+        Interop.GlobalHotkeys.Suspend();
+        b.Content = Loc.S("Hk_PressCombo");
+        HotkeysStatus.Text = Loc.S("Hk_CaptureHint");
+        b.Focus(FocusState.Programmatic);
+        b.KeyDown += OnHotkeyKeyDown;
+        b.LostFocus += OnHotkeyCaptureLost;
+    }
+
+    private void OnHotkeyCaptureLost(object sender, RoutedEventArgs e)
+    {
+        // Ушли с кнопки, не нажав сочетание — возвращаем как было, чтобы не остаться
+        // с надписью «нажмите сочетание» навсегда.
+        if (sender is Button b) { b.KeyDown -= OnHotkeyKeyDown; b.LostFocus -= OnHotkeyCaptureLost; }
+        _capturing = null;
+        Interop.GlobalHotkeys.Resume();
+        RefreshHotkeyButtons();
+        HotkeysStatus.Text = "";
+    }
+
+    private void OnHotkeyKeyDown(object sender, Microsoft.UI.Xaml.Input.KeyRoutedEventArgs e)
+    {
+        if (_capturing is not { } action || sender is not Button b) return;
+        var key = e.Key;
+        // Сами модификаторы нажатием не считаем — ждём «настоящую» клавишу.
+        if (key is Windows.System.VirtualKey.Control or Windows.System.VirtualKey.Menu
+                or Windows.System.VirtualKey.Shift or Windows.System.VirtualKey.LeftWindows
+                or Windows.System.VirtualKey.RightWindows) return;
+        e.Handled = true;
+
+        uint mods = 0;
+        if (IsDown(Windows.System.VirtualKey.Control)) mods |= Interop.HotkeySpec.ModControl;
+        if (IsDown(Windows.System.VirtualKey.Menu)) mods |= Interop.HotkeySpec.ModAlt;
+        if (IsDown(Windows.System.VirtualKey.Shift)) mods |= Interop.HotkeySpec.ModShift;
+
+        var spec = new Interop.HotkeySpec(mods, (uint)key);
+        b.KeyDown -= OnHotkeyKeyDown;
+        b.LostFocus -= OnHotkeyCaptureLost;
+        _capturing = null;
+
+        if (!spec.IsValid)
+        {
+            // Без модификатора сочетание отобрало бы обычную клавишу у всей системы.
+            HotkeysStatus.Text = Loc.S("Hk_NeedModifier");
+            Interop.GlobalHotkeys.Resume();
+            RefreshHotkeyButtons();
+            return;
+        }
+        // Сначала свои же назначения. Сочетание, уже занятое главным окном, проба ниже
+        // объявила бы «занято другой программой» — и пользователь искал бы виновника
+        // снаружи, хотя это наш собственный софтфон.
+        foreach (var other in Interop.GlobalHotkeys.AllActions)
+        {
+            if (other == action || EffectiveHotkey(other) != spec) continue;
+            HotkeysStatus.Text = Loc.F("Hk_Duplicate", spec.Format(), Loc.S("Hk" + other + ".Text"));
+            Interop.GlobalHotkeys.Resume();
+            RefreshHotkeyButtons();
+            return;
+        }
+        // Своё прежнее сочетание переназначать не надо — и пробовать его нельзя, оно занято нами.
+        if (EffectiveHotkey(action) != spec
+            && !Interop.GlobalHotkeys.IsAvailable(WinRT.Interop.WindowNative.GetWindowHandle(this), spec))
+        {
+            HotkeysStatus.Text = Loc.F("Hk_Taken", spec.Format());
+            Interop.GlobalHotkeys.Resume();
+            RefreshHotkeyButtons();
+            return;
+        }
+
+        _linphone.SetAppString(Interop.GlobalHotkeys.ConfigKey(action), spec.Format());
+        RefreshHotkeyButtons();
+        ApplyHotkeys();
+    }
+
+    /// <summary>Занять сочетания по текущим настройкам. Делаем сразу, а не «после
+    /// перезапуска»: оператор правит клавишу посреди рабочего дня и должен проверить её
+    /// тут же.</summary>
+    private void ApplyHotkeys()
+    {
+        if (!HotkeysSwitch.IsOn)
+        {
+            Interop.GlobalHotkeys.Suspend();
+            HotkeysStatus.Text = "";
+            return;
+        }
+        var failed = Interop.GlobalHotkeys.Rebind(Interop.GlobalHotkeys.FromConfig(_linphone));
+        _hkFailed = new HashSet<string>(failed);
+        RefreshHotkeyButtons();
+        HotkeysStatus.Text = failed.Count > 0
+            ? Loc.F("Hk_TakenList", string.Join(", ", failed))
+            : Loc.S("Hk_Applied");
+    }
+
+    /// <summary>Снять назначение. Пишем «-», а не пустую строку: пустая означала бы
+    /// «не задано» и вернула бы значение по умолчанию вопреки решению пользователя.</summary>
+    private void OnClearHotkey(object sender, RoutedEventArgs e)
+    {
+        if (sender is not Button b || b.Tag is not string tag) return;
+        if (!Enum.TryParse(tag, out Interop.HotkeyAction action)) return;
+        _linphone.SetAppString(Interop.GlobalHotkeys.ConfigKey(action), "-");
+        RefreshHotkeyButtons();
+        ApplyHotkeys();
+    }
+
+    private static bool IsDown(Windows.System.VirtualKey k) =>
+        Microsoft.UI.Input.InputKeyboardSource.GetKeyStateForCurrentThread(k)
+            .HasFlag(Windows.UI.Core.CoreVirtualKeyStates.Down);
+
+    private void OnMiniWindowToggled(object sender, RoutedEventArgs e)
+    {
+        if (!_loading) _linphone.SetAppFlag("mini_call_window", MiniWindowSwitch.IsOn);
     }
 
     // ---------------- Обновления ----------------
@@ -930,8 +1396,14 @@ public sealed partial class SettingsWindow : Window
     private void PopulateContacts()
     {
         PhonebookUrlBox.Text = _linphone.GetPhonebookUrl();
-        PhonebookUserBox.Text = _linphone.GetPhonebookAuth().User;
-        PhonebookPassBox.Password = "";   // пароль обратно не показываем; пусто = не менять
+        var phonebookAuth = _linphone.GetPhonebookAuth();   // один запрос к ядру на оба поля
+        PhonebookUserBox.Text = phonebookAuth.User;
+        // Показываем сохранённый пароль — точками, как и положено PasswordBox. Раньше поле
+        // оставляли пустым «чтобы не показывать», и человек не мог отличить «пароль есть»
+        // от «пароля нет»; пустое поле при этом ещё и означало «не менять», что приходилось
+        // объяснять прямо в заголовке. Значение и так лежит под DPAPI и доступно этому же
+        // пользователю Windows — скрывать его от него самого смысла нет.
+        PhonebookPassBox.Password = phonebookAuth.Password;
         PhonebookStatus.Text = "";
     }
 
@@ -1001,12 +1473,45 @@ public sealed partial class SettingsWindow : Window
     // ---------------- О программе ----------------
     private void PopulateAbout()
     {
+        UpdateCheckSwitch.IsOn = _linphone.GetAppFlag("update_check", true);
         // Version, а не InformationalVersion: последняя у .NET несёт хвост с git-хэшем
         // («1.2.0+81bdf5f…»), и он оказался бы прямо в окне «О программе».
         AboutVersionText.Text = $"L-Phone {typeof(SettingsWindow).Assembly.GetName().Version?.ToString(3) ?? "?"}";
         AboutSdkText.Text = $"liblinphone {_linphone.CoreVersion}";
         AboutRuntimeText.Text = $".NET {Environment.Version} · WinUI 3";
-        try { LogText.Text = File.Exists(LogFilePath) ? File.ReadAllText(LogFilePath) : ""; } catch { }
+        _ = ShowLogTailAsync();
+    }
+
+    /// <summary>Хвост журнала в окно «О программе».
+    ///
+    /// Раньше здесь был File.ReadAllText на UI-потоке — а app.log растёт до 4 МБ. То есть
+    /// открытие вкладки означало синхронное чтение мегабайтов с диска (через антивирус) и
+    /// рендер их же в TextBox: окно замирало, память подскакивала. Читаем в фоне и только
+    /// последние строки — при разборе обращения смотрят конец, а не начало.</summary>
+    private const int LogTailLines = 500;
+
+    private async Task ShowLogTailAsync()
+    {
+        LogText.Text = Loc.S("St_Loading");
+        string tail = await Task.Run(() => ReadTail(AppLog.FilePath, LogTailLines));
+        LogText.Text = tail;
+    }
+
+    /// <summary>Последние maxLines строк файла. Читаем потоком, не поднимая файл в память целиком.</summary>
+    private static string ReadTail(string path, int maxLines)
+    {
+        try
+        {
+            if (!File.Exists(path)) return "";
+            var tail = new Queue<string>(maxLines + 1);
+            foreach (string line in File.ReadLines(path))
+            {
+                if (tail.Count == maxLines) tail.Dequeue();
+                tail.Enqueue(line);
+            }
+            return string.Join(Environment.NewLine, tail);
+        }
+        catch (Exception ex) { return Loc.S("St_ErrorPrefix") + ex.Message; }
     }
 
     private void OnVerboseLogsToggled(object sender, RoutedEventArgs e)
@@ -1016,18 +1521,19 @@ public sealed partial class SettingsWindow : Window
 
     private void OnOpenLogsClick(object sender, RoutedEventArgs e)
     {
-        string dir = Path.GetDirectoryName(LogFilePath) ?? "";
+        string dir = AppLog.Directory;
         try { System.Diagnostics.Process.Start("explorer.exe", dir); } catch { }
     }
 
     private void OnClearLogsClick(object sender, RoutedEventArgs e)
     {
-        string localDir = Path.GetDirectoryName(LogFilePath) ?? "";
+        string localDir = AppLog.Directory;
         // app.log(.1) и crash.log — в LOCALAPPDATA; liblinphone.log — в каталоге профиля (ProgramData\SID).
         foreach (var f in new[] { "app.log", "app.log.1", "crash.log" })
             try { File.Delete(Path.Combine(localDir, f)); } catch { }
         try { File.Delete(Path.Combine(_linphone.ProfileDir, "liblinphone.log")); } catch { }
         LogText.Text = "";
+        _ = ShowLogTailAsync();   // журнал пишется дальше — покажем, что осталось после очистки
     }
 
     /// <summary>Собирает все логи (из ОБОИХ каталогов) + версии в один ZIP на рабочем столе —
@@ -1036,7 +1542,7 @@ public sealed partial class SettingsWindow : Window
     {
         try
         {
-            string localDir = Path.GetDirectoryName(LogFilePath) ?? "";
+            string localDir = AppLog.Directory;
             string zip = Path.Combine(
                 Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory),
                 $"L-Phone-diag-{DateTime.Now:yyyyMMdd-HHmmss}.zip");

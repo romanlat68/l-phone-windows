@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using System.Collections.Generic;
 using LinphoneWinUI.Interop;
 
@@ -28,8 +29,11 @@ public sealed class FakeSipService : ISipService
     public List<CallLogEntry> CallHistory { get; } = new();
 
     // --- Жизненный цикл ---
-    public void Start() { }
+    public bool Start() => true;
     public bool IsStarted => true;
+    public bool CoreReady => true;
+    public bool CoreFailed => false;
+    public string HealthSummary() => "fake";
     public string CoreVersion => "test";
     public string ProfileDir => "";
     public void Dispose() { }
@@ -46,33 +50,80 @@ public sealed class FakeSipService : ISipService
 
     // --- Звонки ---
     public void Call(string target) => PlacedCalls.Add(target);
-    public void Hangup() { }
-    public void AcceptIncoming() { }
+    public void Hangup() => HungUp = true;
+    public void AcceptIncoming() => Accepted = true;
+
+    /// <summary>Последний набранный номер — для проверок, что команда дошла именно с ним.</summary>
+    public string? LastCalled => PlacedCalls.Count > 0 ? PlacedCalls[^1] : null;
+    public bool HungUp { get; private set; }
+    public bool Accepted { get; private set; }
+
+    /// <summary>Сколько звонков «идёт» — этим управляют тесты занятой линии.</summary>
+    public int CallCountValue { get; set; }
     public void DeclineIncoming() { }
     public void DeclineBusy() { }
-    public int CallCount => 0;
+    public int CallCount => CallCountValue;
     public void SwapCalls() { }
     public void SendDtmf(char digit) { }
     public void PlayLocalDtmf(char digit) { }
-    public bool Transfer(string target) => true;
-    public bool TransferToHeldCall() => true;
-    public bool ToggleMute() => false;
-    public bool ToggleHold() => false;
+    /// <summary>Куда переводили — тесты сверяют цель, а не только факт.</summary>
+    public string? LastTransferTarget;
+    public CommandOutcome TransferOutcome = CommandOutcome.Done;
+    public CommandOutcome Transfer(string target) { LastTransferTarget = target; return TransferOutcome; }
+    public CommandOutcome TransferToHeldCall() => TransferOutcome;
+    /// <summary>Команды переключения: тест проверяет, что они дошли, а состояние приходит
+    /// событием (в бою — с потока ядра).</summary>
+    public int MuteToggles { get; private set; }
+    public int HoldToggles { get; private set; }
+
+    public void ToggleMute() { MuteToggles++; RaiseMicMute(!MicMuted); }
+    public void ToggleHold() => HoldToggles++;
+    public bool MicMuted { get; private set; }
+    public event Action<bool>? MicMuteChanged;
+
+    /// <summary>Сымитировать сообщение ядра о смене состояния микрофона.</summary>
+    public void RaiseMicMute(bool muted) { MicMuted = muted; MicMuteChanged?.Invoke(muted); }
     public int CurrentCallDuration => 0;
     public void RefreshNetwork() { }
+    /// <summary>Последнее объявленное состояние сети (тесты сна/пробуждения).</summary>
+    public bool? NetworkReachable;
+    public void SetNetworkReachable(bool reachable) => NetworkReachable = reachable;
+    /// <summary>Чем зашифрован разговор. Подменяется тестами экрана звонка.</summary>
+    public string Encryption { get; set; } = "none";
+    public string CurrentCallEncryption() => Encryption;
+
+    /// <summary>Идёт ли сигнализация по TLS — задаётся тестом (по умолчанию нет, как у
+    /// аккаунта на UDP: именно в этом сочетании SRTP-SDES и оказывается декоративным).</summary>
+    public bool SignallingTls { get; set; }
+    public CallSecurity CurrentCallSecurity() => new(Encryption, SignallingTls);
+    public CallQuality Quality { get; set; } = CallQuality.None;
+    public CallQuality CurrentQuality() => Quality;
+    public (float Mic, float Speaker) Levels { get; set; }
+    public (float Mic, float Speaker) CurrentAudioLevels() => Levels;
+    public event Action? AudioDevicesChanged;
+    public IReadOnlyList<string> AudioDeviceIds(bool input) => input ? InputDeviceIds : OutputDeviceIds;
+
+    /// <summary>Есть ли живой микрофон — задаётся тестом (по умолчанию есть).</summary>
+    public bool HasRealMicrophone { get; set; } = true;
     public CallEvent? CurrentCallSnapshot() => null;
     public CallEvent? DisplayCallSnapshot() => null;
 
     // --- Конференция ---
     public bool IsInConference => false;
     public void HoldCurrent() { }
-    public bool MergeCallsIntoConference() => false;
+    public CommandOutcome MergeCallsIntoConference() => CommandOutcome.Rejected;
     public void TerminateConference() { }
 
     // --- Запись разговора ---
-    public bool IsRecording => false;
+    public bool Recording;
+    public bool IsRecording => Recording;
+    public event Action<bool>? RecordingChanged;
     public string? RecordPath => null;
-    public bool ToggleRecording() => false;
+    public void ToggleRecording()
+    {
+        Recording = !Recording;
+        RecordingChanged?.Invoke(Recording);
+    }
     public string GetRecordingsDir() => "";
     public void SetRecordingsDir(string? path) { }
 
@@ -97,7 +148,7 @@ public sealed class FakeSipService : ISipService
     public List<string> SyncedDialogPeers { get; } = new();
     public void SyncDialogSubscriptions(IEnumerable<string> extensions) => SyncedDialogPeers.AddRange(extensions);
 #pragma warning disable CS0067 // тестовый двойник события не поднимает
-    public event Action<string, DialogState>? DialogStateChanged;
+    public event Action<string, DialogState, string>? DialogStateChanged;
 #pragma warning restore CS0067
     public void SetPresencePublish(bool on) { }
     public PresenceStatus MyStatus => PresenceStatus.Available;
@@ -118,13 +169,25 @@ public sealed class FakeSipService : ISipService
     }
 
     // --- Аудио/видео устройства ---
-    public IReadOnlyList<AudioDeviceInfo> GetInputDevices() => Array.Empty<AudioDeviceInfo>();
-    public IReadOnlyList<AudioDeviceInfo> GetOutputDevices() => Array.Empty<AudioDeviceInfo>();
-    public void ReloadSoundDevices() { }
-    public string? CurrentInputDeviceId => null;
-    public string? CurrentOutputDeviceId => null;
-    public void SetInputDevice(string id) { }
-    public void SetOutputDevice(string id) { }
+    // --- Аудиоустройства: подставной набор для тестов маршрутизации ---
+    public string[] InputDeviceIds = Array.Empty<string>();
+    public string[] OutputDeviceIds = Array.Empty<string>();
+    public string? InputDeviceId;
+    public string? OutputDeviceId;
+    public int ReloadCount;
+    /// <summary>Порядок присвоений — тесты перепривязки проверяют именно его.</summary>
+    public readonly List<string> InputDeviceSets = new();
+    public readonly List<string> OutputDeviceSets = new();
+
+    public IReadOnlyList<AudioDeviceInfo> GetInputDevices() =>
+        InputDeviceIds.Select(id => new AudioDeviceInfo(id, id)).ToList();
+    public IReadOnlyList<AudioDeviceInfo> GetOutputDevices() =>
+        OutputDeviceIds.Select(id => new AudioDeviceInfo(id, id)).ToList();
+    public void ReloadSoundDevices() => ReloadCount++;
+    public string? CurrentInputDeviceId => InputDeviceId;
+    public string? CurrentOutputDeviceId => OutputDeviceId;
+    public void SetInputDevice(string id) { InputDeviceSets.Add(id); InputDeviceId = id; }
+    public void SetOutputDevice(string id) { OutputDeviceSets.Add(id); OutputDeviceId = id; }
     public string GetRingerDeviceId() => "";
     public void SetRingerDevice(string id) { }
     public List<string> GetCameras() => new();
@@ -135,7 +198,13 @@ public sealed class FakeSipService : ISipService
 
     // --- Видео ---
     public void SetupVideo() { }
-    public bool ToggleVideo() => false;
+    public bool CameraOn;
+    public event Action<bool>? CameraStateChanged;
+    public void ToggleVideo()
+    {
+        CameraOn = !CameraOn;
+        CameraStateChanged?.Invoke(CameraOn);
+    }
     public void StartCameraPreview() { }
     public void StopCameraPreview() { }
     public bool IsSendingVideo() => false;
@@ -178,6 +247,9 @@ public sealed class FakeSipService : ISipService
     public string GetVoicemailNumber() => "*97";
     public void SetVoicemailNumber(string number) { }
     public string GetPresenceHookSecret() => "";
+    public string ApiToken = "";
+    public string GetApiToken() => ApiToken;
+    public void SetApiToken(string token) => ApiToken = token;
     public void SetPresenceHookSecret(string secret) { }
     public string GetRingtone() => "";
     public void SetRingtone(string? path) { }
@@ -186,14 +258,19 @@ public sealed class FakeSipService : ISipService
     public void SetProvisioningUri(string uri) { }
     public (string Stun, bool Ice, bool Turn, string TurnUser) GetNat() => ("", false, false, "");
     public bool SetNat(string stun, bool ice, bool turn, string turnUser, string turnPass, string turnRealm) => true;
+    public bool HasTurnPassword(string turnUser) => false;
     public (string CaFile, bool Verify) GetTls() => ("", true);
     public bool SetTls(string caFile, bool verify) => true;
     public string GetTheme() => "system";
     public void SetTheme(string theme) { }
-    public bool GetAppFlag(string key, bool def) => def;
-    public void SetAppFlag(string key, bool value) { }
-    public string GetAppString(string key, string def) => def;
-    public void SetAppString(string key, string value) { }
+    /// <summary>Настройки rc, которые тест может задать заранее (иначе — значение по умолчанию).</summary>
+    public Dictionary<string, bool> Flags { get; } = new();
+    public Dictionary<string, string> Strings { get; } = new();
+
+    public bool GetAppFlag(string key, bool def) => Flags.TryGetValue(key, out bool v) ? v : def;
+    public void SetAppFlag(string key, bool value) => Flags[key] = value;
+    public string GetAppString(string key, string def) => Strings.TryGetValue(key, out string? v) ? v : def;
+    public void SetAppString(string key, string value) => Strings[key] = value;
     public void SetVerboseLogs(bool verbose) { }
 }
 #pragma warning restore CS0067

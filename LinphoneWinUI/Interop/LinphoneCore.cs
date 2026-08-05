@@ -28,11 +28,33 @@ public sealed class CodecInfo
 public sealed class CallLogEntry
 {
     public string Remote { get; init; } = "";   // полный SIP-адрес для перезвона
-    public string Title { get; init; } = "";     // стрелка + номер/имя
-    public string Subtitle { get; init; } = "";  // дата/время + длительность либо «Пропущенный»
+    public string Title { get; init; } = "";     // номер или имя собеседника
+    public string Subtitle { get; init; } = "";  // когда звонили и сколько говорили
+    /// <summary>Стрелка направления. Отдельно от имени: она красится своим цветом,
+    /// а в одной строке с именем это было невозможно.</summary>
+    public string Arrow { get; init; } = "";
     public bool Missed { get; init; }
     public bool Incoming { get; init; } // направление: true — входящий, false — исходящий
     public long StartUnix { get; init; } // начало звонка, Unix-секунды (0 — неизвестно)
+
+    /// <summary>Чем был зашифрован разговор: "srtp"/"zrtp"/"dtls" либо "" — защиты не было
+    /// или запись сделана до появления пометок. Приходит из нашей метки в ref_key: в журнале
+    /// самого liblinphone поля шифрования нет.</summary>
+    public string Encryption { get; init; } = "";
+
+    /// <summary>Показывать ли замок в строке журнала. Открытые разговоры не помечаем ничем:
+    /// перечёркнутый замок на каждом внешнем звонке стал бы фоном, который перестают замечать.</summary>
+    public bool IsEncrypted => Encryption.Length > 0;
+
+    /// <summary>Подсказка к замку: какой именно механизм. ZRTP оговариваем особо — без сверки
+    /// контрольной фразы он не защищает от подмены собеседника.</summary>
+    public string EncryptionTip => Encryption switch
+    {
+        "srtp" => Loc.F("St_EncWas", "SRTP"),
+        "zrtp" => Loc.F("St_EncWas", "ZRTP") + " " + Loc.S("St_EncZrtpNote"),
+        "dtls" => Loc.F("St_EncWas", "DTLS-SRTP"),
+        _ => "",
+    };
 }
 
 /// <summary>Снимок состояния звонка, передаётся в событии CallStateChanged.
@@ -43,7 +65,36 @@ public readonly record struct CallEvent(
     string? Remote,
     bool IsIncoming,
     int DurationSeconds,
-    LinphoneReason Reason = LinphoneReason.None);
+    LinphoneReason Reason = LinphoneReason.None,
+    /// <summary>Короткий Call-ID для журнала. Без него две параллельные линии в логе
+    /// неразличимы: подряд идут «Звонок: End» и «Звонок: StreamsRunning» — и непонятно, чьи.</summary>
+    string? CallId = null,
+    /// <summary>АТС просит ответить автоматически (интерком, оповещение, домофон) через
+    /// столько секунд. null — обычный звонок. Заполняется только для входящего.</summary>
+    int? IntercomAnswerAfter = null);
+
+/// <summary>
+/// Защита разговора: чем зашифровано медиа и шла ли сигнализация по TLS.
+///
+/// Два факта вместе, а не порознь, потому что по отдельности они обманывают. SRTP в режиме
+/// SDES (наш режим по умолчанию) передаёт ключ сессии ВНУТРИ SDP, то есть в теле SIP-сообщения.
+/// Если аккаунт работает по UDP или TCP, этот ключ едет открытым текстом и любой на пути
+/// расшифрует разговор — а закрытый замок в интерфейсе при этом обещает защиту. Это хуже,
+/// чем отсутствие шифрования: человек принимает решение говорить свободно, опираясь на
+/// индикатор, который в таком сочетании неверен.
+/// </summary>
+public readonly record struct CallSecurity(string Encryption, bool SignallingTls)
+{
+    public static CallSecurity None => new("none", false);
+
+    /// <summary>Медиа зашифровано (о чём договорились стороны, а не что мы предложили).</summary>
+    public bool IsEncrypted => Encryption is "srtp" or "zrtp" or "dtls";
+
+    /// <summary>Шифрование есть, но ключ передавался по незащищённому каналу. Касается только
+    /// SDES-SRTP: у ZRTP ключ вырабатывается в самом медиапотоке (Диффи — Хеллман), у
+    /// DTLS-SRTP — в DTLS-рукопожатии, и сигнализация им не нужна.</summary>
+    public bool IsWeak => Encryption == "srtp" && !SignallingTls;
+}
 
 /// <summary>Строка чата для UI: текст и флаг «исходящее».</summary>
 public sealed record ChatLine(string Text, bool Mine);
@@ -98,6 +149,7 @@ internal sealed partial class LinphoneCore : IDisposable
     private readonly TransferStateChangedCb _onTransfer;
     private readonly MessageWaitingIndicationChangedCb _onMwi;
     private readonly NotifyReceivedCb _onNotify;   // держим ссылку: иначе GC съест делегат под нативным колбэком
+    private readonly AudioDevicesListUpdatedCb _onAudioDevices;
 
     public event Action<LinphoneRegistrationState, string?>? RegistrationStateChanged;
     public event Action<CallEvent>? CallStateChanged;
@@ -132,8 +184,14 @@ internal sealed partial class LinphoneCore : IDisposable
     /// в LOCALAPPDATA и не находил.</summary>
     public string ProfileDir { get; private set; } = "";
 
-    public LinphoneCore()
+    /// <summary>Каталог профиля вместо боевого (ProgramData\L-Phone\SID). Задают ТОЛЬКО тесты:
+    /// иначе интеграционный прогон писал бы в рабочий linphonerc пользователя и его же базы —
+    /// то есть портил бы настройки и журнал звонков ради проверки.</summary>
+    private readonly string? _profileDirOverride;
+
+    public LinphoneCore(string? profileDirOverride = null)
     {
+        _profileDirOverride = profileDirOverride;
         // Мост для логов из статических методов (SaveCreds, HardenDirectoryAcl): раньше их
         // ошибки уходили в Debug.WriteLine, которого в проде нет — саппорт не видел, что
         // пароль не сохранился или каталог профиля остался открытым.
@@ -145,6 +203,7 @@ internal sealed partial class LinphoneCore : IDisposable
         _onNotify = OnNotifyReceived;
         _onTransfer = OnTransferStateChanged;
         _onMwi = OnMwiChanged;
+        _onAudioDevices = OnAudioDevicesListUpdated;
     }
 
     private static readonly int AnsiCodePage = (int)GetACP();
@@ -194,17 +253,46 @@ internal sealed partial class LinphoneCore : IDisposable
         // (раньше общий C:\ProgramData\L-Phone с linphonerc был читаем всеми).
         string sharedBase = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData), "L-Phone");
-        string logDir = Path.Combine(sharedBase, CurrentUserSid());
-        EnsureOwnProfileDir(logDir);
-        ProfileDir = logDir;
-        MigrateSharedProfile(sharedBase, logDir);
-        // ВАЖНО: hardening строго ПОСЛЕ миграции. File.Move в пределах тома сохраняет файлу
-        // старый DACL (унаследованный от общего каталога — «читаем всеми»); SetAccessControl
-        // на каталоге перераспространяет наследование на уже лежащие внутри файлы и вычищает
-        // эти ACE (поведение SetSecurityInfo, проверено). Поменять порядок = снова открыть
-        // linphonerc всем пользователям машины.
-        HardenDirectoryAcl(logDir);
-        PruneCoreLogs(logDir);
+        string logDir = _profileDirOverride ?? Path.Combine(sharedBase, CurrentUserSid());
+        if (_profileDirOverride != null)
+        {
+            // Тестовый профиль — временный каталог, который создаёт и удаляет сам тест:
+            // ни миграции со старого общего каталога, ни ACL, ни чистки логов тут не нужно.
+            Directory.CreateDirectory(logDir);
+            ProfileDir = logDir;
+        }
+        else
+        {
+            if (!EnsureOwnProfileDir(logDir))
+            {
+                // Каталог занят другим пользователем машины — работаем в личном. Миграцию из
+                // общего каталога при этом НЕ делаем: раз рядом хозяйничает посторонний,
+                // переносить оттуда что-либо тем более нельзя.
+                // ПОРЯДОК ВАЖЕН: сначала создать каталог, только потом приводить к ASCII.
+                // AsciiSafePath берёт короткое имя (8.3) у СУЩЕСТВУЮЩЕГО пути; для ещё не
+                // созданного он возвращает путь как есть, и под кириллическим профилем
+                // (C:\Users\Роман\…) soci/sqlite не открыли бы базы — linphone_core_start
+                // вернул бы -2, то есть телефон не запустился бы вовсе.
+                logDir = FallbackProfileDir;
+                Directory.CreateDirectory(logDir);
+                logDir = AsciiSafePath(logDir);
+                HardenDirectoryAcl(logDir);
+                ProfileDir = logDir;
+                PruneCoreLogs(logDir);
+            }
+            else
+            {
+                ProfileDir = logDir;
+                MigrateSharedProfile(sharedBase, logDir);
+                // ВАЖНО: hardening строго ПОСЛЕ миграции. File.Move в пределах тома сохраняет
+                // файлу старый DACL (унаследованный от общего каталога — «читаем всеми»);
+                // SetAccessControl на каталоге перераспространяет наследование на уже лежащие
+                // внутри файлы и вычищает эти ACE (поведение SetSecurityInfo, проверено).
+                // Поменять порядок = снова открыть linphonerc всем пользователям машины.
+                HardenDirectoryAcl(logDir);
+                PruneCoreLogs(logDir);
+            }
+        }
         _logService = linphone_logging_service_get();
         if (_logService != IntPtr.Zero)
         {
@@ -295,6 +383,30 @@ internal sealed partial class LinphoneCore : IDisposable
             Log?.Invoke("Session timers недоступны в этой сборке SDK: " + ex.Message);
         }
 
+        // Шифрование медиа по умолчанию — SDES/SRTP. Оставалось «none», то есть клиент предлагал
+        // голый RTP/AVP и разговор удалённого сотрудника шёл через открытый интернет открытым.
+        // Эндпоинты АТС настроены как sdes + optimistic, поэтому включение безопасно: если
+        // вторая сторона SRTP не умеет, звонок пройдёт как раньше, а не сорвётся.
+        // ВАЖНО: mandatory НЕ включаем — иначе звонки абонентам без SRTP перестанут проходить.
+        // Однократно (флаг [app] srtp_default), чтобы осознанно выбранное «нет» не возвращалось.
+        try
+        {
+            if (GetAppString("srtp_default", "0") != "1")
+            {
+                if (linphone_core_media_encryption_supported(_core, (int)LinphoneMediaEncryption.SRTP) != 0)
+                {
+                    linphone_core_set_media_encryption(_core, (int)LinphoneMediaEncryption.SRTP);
+                    Log?.Invoke("Шифрование медиа по умолчанию: SRTP (SDES)");
+                }
+                else Log?.Invoke("SRTP не собран в этой сборке SDK — шифрование медиа осталось выключенным");
+                SetAppString("srtp_default", "1");
+            }
+        }
+        catch (EntryPointNotFoundException ex)
+        {
+            Log?.Invoke("Не удалось включить SRTP по умолчанию: " + ex.Message);
+        }
+
         // 6. Колбэки до старта.
         _cbs = linphone_factory_create_core_cbs(_factory);
         linphone_core_cbs_set_registration_state_changed(_cbs, _onRegistration);
@@ -305,6 +417,7 @@ internal sealed partial class LinphoneCore : IDisposable
         catch (EntryPointNotFoundException) { Log?.Invoke("BLF: подписка на dialog недоступна в этой сборке SDK"); }
         try { linphone_core_cbs_set_transfer_state_changed(_cbs, _onTransfer); } catch { /* нет в этой сборке SDK */ }
         try { linphone_core_cbs_set_message_waiting_indication_changed(_cbs, _onMwi); } catch { /* нет в этой сборке SDK */ }
+        try { linphone_core_cbs_set_audio_devices_list_updated(_cbs, _onAudioDevices); } catch { /* нет в этой сборке SDK */ }
         linphone_core_add_callbacks(_core, _cbs);
 
         // 7. Старт.
@@ -314,6 +427,24 @@ internal sealed partial class LinphoneCore : IDisposable
 
         linphone_core_set_network_reachable(_core, 1);
 
+        // Keep-alive задаём ЯВНО, а не полагаемся на умолчание сборки SDK (его же может
+        // перетереть провизионинг). За NAT это решает, дойдёт ли до нас входящий: маршрутизатор
+        // держит пробитый UDP-порт обычно 30 секунд, а регистрация живёт час — без периодического
+        // пакета телефон звонит наружу нормально, а дозвониться до него нельзя, и выглядит это
+        // как «АТС сломалась». 25 секунд — под типовой таймаут conntrack с запасом.
+        // 0 в rc [app] keepalive_period выключает механизм.
+        if (!int.TryParse(GetAppString("keepalive_period", "25"), out int ka)) ka = 25;
+        try { linphone_core_enable_keep_alive(_core, ka > 0 ? 1 : 0); }
+        catch (EntryPointNotFoundException ex)
+        {
+            // Молчать нельзя: «входящие иногда не доходят» — жалоба, которую без этой строки
+            // будут искать на стороне АТС неделями.
+            Log?.Invoke("Keep-alive недоступен в этой сборке SDK: " + ex.Message);
+            ka = 0;
+        }
+        if (ka > 0) ApplyKeepAlivePeriod(ka);
+        else Log?.Invoke("SIP keep-alive выключен (rc [app] keepalive_period=0)");
+
         // Отключаем conference-factory: с ним liblinphone делает chat групповым (INVITE на
         // conf-сервер, «звонок от anonymous»); без него — прямой SIP MESSAGE, как надо Asterisk.
         try { linphone_core_set_conference_factory_uri(_core, null); } catch { }
@@ -321,6 +452,45 @@ internal sealed partial class LinphoneCore : IDisposable
         CoreVersion = PtrToUtf8(linphone_core_get_version()) ?? "?";
         Log?.Invoke($"Core запущен. liblinphone {CoreVersion}");
         WarnIfNoSoundDevices(msPlugins);
+    }
+
+    /// <summary>
+    /// Задать период keep-alive, чего бы это ни стоило.
+    ///
+    /// Прямого API в поставляемом рантайме НЕТ: <c>linphone_core_set_keep_alive_period</c>
+    /// не экспортирован в liblinphone 5.4.122 (проверено запуском — в журнале была строка
+    /// «Keep-alive недоступен в этой сборке SDK: Unable to find an entry point…»). То есть
+    /// заявленная защита от закрытия NAT-биндинга не действовала вовсе: период оставался
+    /// умолчанием библиотеки, а нужная строка в журнале не появлялась никогда — и проверить
+    /// это по логу было нельзя, потому что отсутствие строки выглядело как «просто не
+    /// записали». За NAT это ровно тот отказ, ради которого настройка и заводилась:
+    /// маршрутизатор закрывает пробитый UDP-порт примерно через 30 секунд, и входящие
+    /// перестают доходить, хотя регистрация выглядит живой.
+    ///
+    /// Запасной путь — та же настройка через конфиг: сам liblinphone хранит период в
+    /// <c>[sip] keepalive_period</c> (миллисекунды) и читает его оттуда. Значение,
+    /// записанное ДО старта Core, применяется штатно.
+    /// </summary>
+    private void ApplyKeepAlivePeriod(int seconds)
+    {
+        try
+        {
+            linphone_core_set_keep_alive_period(_core, (uint)(seconds * 1000));
+            Log?.Invoke($"SIP keep-alive: каждые {seconds} с");
+            return;
+        }
+        catch (EntryPointNotFoundException) { /* нет в этой сборке SDK — идём через конфиг */ }
+
+        IntPtr cfg = linphone_core_get_config(_core);
+        if (cfg == IntPtr.Zero)
+        {
+            Log?.Invoke("ВНИМАНИЕ: период SIP keep-alive задать не удалось — за NAT входящие "
+                        + "могут перестать доходить через несколько минут тишины");
+            return;
+        }
+        linphone_config_set_int(cfg, "sip", "keepalive_period", seconds * 1000);
+        linphone_config_sync(cfg);
+        Log?.Invoke($"SIP keep-alive: каждые {seconds} с (через конфиг — прямого API нет в этой сборке SDK)");
     }
 
     /// <summary>Диагностика «тихого отказа звука»: ноль устройств почти всегда означает,
@@ -342,11 +512,68 @@ internal sealed partial class LinphoneCore : IDisposable
         catch { }
     }
 
-    /// <summary>Должно вызываться регулярно (~20 мс) на UI-потоке.</summary>
+    /// <summary>Должно вызываться регулярно (~20 мс) на потоке ядра.</summary>
     public void Iterate()
     {
-        if (_core != IntPtr.Zero)
-            linphone_core_iterate(_core);
+        if (_core == IntPtr.Zero) return;
+        linphone_core_iterate(_core);
+        UpdateAudioSnapshots();
+    }
+
+    // --- Снимки для индикатора микрофона ---
+    // Раньше интерфейс опрашивал уровни и список устройств СИНХРОННО восемь раз в секунду:
+    // два перехода на поток ядра на каждый тик полоски, причём второй (перечисление
+    // аудиоустройств) — дорогой, с обходом списка и unref каждого элемента. Пока ядро
+    // свободно, это микросекунды; как только оно уходит в DNS или TLS внутри iterate,
+    // интерфейс встаёт целиком — ровно в тот момент, когда пользователю нужнее всего
+    // видеть, что происходит со звонком. Теперь значения считаются здесь, на потоке ядра,
+    // а интерфейс читает готовые поля, ничего не ожидая.
+    private volatile float _micLevelSnapshot;
+    private volatile float _spkLevelSnapshot;
+    private volatile bool _hasRealMicSnapshot = true;
+    private int _iterateTicks;
+
+    /// <summary>Уровень микрофона 0..1 (снимок; безопасно читать с любого потока).</summary>
+    public float MicLevelSnapshot => _micLevelSnapshot;
+
+    /// <summary>Уровень динамика 0..1 (снимок; безопасно читать с любого потока).</summary>
+    public float SpeakerLevelSnapshot => _spkLevelSnapshot;
+
+    /// <summary>Есть ли НАСТОЯЩИЙ микрофон (не только псевдоустройство «по умолчанию»).
+    /// Снимок: перечисление устройств слишком дорого для опроса из интерфейса.</summary>
+    public bool HasRealMicSnapshot => _hasRealMicSnapshot;
+
+    private void UpdateAudioSnapshots()
+    {
+        int tick = ++_iterateTicks;
+        // Уровни — раз в 100 мс: полоска обновляется восемь раз в секунду, чаще незачем.
+        if (tick % 5 == 0)
+        {
+            var (mic, spk) = CurrentAudioLevels();
+            _micLevelSnapshot = mic;
+            _spkLevelSnapshot = spk;
+        }
+        // Наличие микрофона — раз в 2 с и только во время разговора: вне его полоски нет,
+        // а перечисление устройств стоит дорого.
+        if (tick % 100 == 0 && _callCountSnapshot > 0) RefreshMicPresence();
+        // Архив SIP-трасс не должен расти всю смену — см. PruneCoreLogs.
+        PruneLogsPeriodically(tick);
+    }
+
+    /// <summary>Пересчитать «есть ли живой микрофон». Считаем ТОЛЬКО настоящие устройства:
+    /// «Default Capture» присутствует всегда, даже когда за ним ничего нет, и на машине без
+    /// встроенного микрофона список после снятия гарнитуры состоит из одного псевдоустройства —
+    /// а человек при этом видел бы полоску уровня и думал, что его слышно.</summary>
+    private void RefreshMicPresence()
+    {
+        try
+        {
+            bool real = false;
+            foreach (var d in GetInputDevices())
+                if (!AudioDeviceChoice.IsSystemDefault(d.Id)) { real = true; break; }
+            _hasRealMicSnapshot = real;
+        }
+        catch { /* не смогли перечислить — оставляем прежнее значение */ }
     }
 
     /// <summary>
@@ -381,7 +608,7 @@ internal sealed partial class LinphoneCore : IDisposable
         if (call != IntPtr.Zero)
         {
             // Финализируем запись ДО завершения, пока медиа живо (иначе MKV не запишется).
-            if (_recording) { try { linphone_call_stop_recording(call); } catch { } _recording = false; }
+            StopRecording(call);   // финализируем файл, пока медиа живо (иначе MKV не запишется)
             linphone_call_terminate(call);
         }
         else if (_core != IntPtr.Zero) linphone_core_terminate_all_calls(_core);
@@ -457,6 +684,7 @@ internal sealed partial class LinphoneCore : IDisposable
     /// <summary>Завершает конференцию вместе со всеми её звонками.</summary>
     public void TerminateConference()
     {
+        StopConferenceRecording();   // закрыть файл, пока конференция ещё существует
         _conferenceActive = false;
         if (_core == IntPtr.Zero) return;
         try { linphone_core_terminate_conference(_core); } catch { }
@@ -529,12 +757,28 @@ internal sealed partial class LinphoneCore : IDisposable
         }
     }
 
-    /// <summary>Отправить DTMF-тон в активный звонок (RFC 2833 / SIP INFO по настройкам).</summary>
+    /// <summary>Отправить DTMF-тон в активный звонок (RFC 2833 / SIP INFO по настройкам).
+    ///
+    /// В конференции «текущего» звонка нет: linphone_core_get_current_call возвращает NULL
+    /// (то же, что у ToggleMute/ToggleHold/ToggleRecording, и там обход уже написан). Без него
+    /// нажатие цифры не делало НИЧЕГО — ни тона, ни ошибки, ни строки в журнале, — при том что
+    /// интерфейс исправно показывал нажатую цифру, то есть подтверждал отправку того, что не
+    /// отправлено. Провести абонента через IVR из конференции было нельзя.</summary>
     public void SendDtmf(char digit)
     {
         IntPtr call = CurrentCall;
-        if (call != IntPtr.Zero)
-            linphone_call_send_dtmf(call, (byte)digit);
+        if (call != IntPtr.Zero) { linphone_call_send_dtmf(call, (byte)digit); return; }
+        if (_core == IntPtr.Zero) return;
+
+        int sent = 0;
+        foreach (IntPtr c in RecordableCalls())   // живые нетерминальные линии — тот же набор
+        {
+            try { linphone_call_send_dtmf(c, (byte)digit); sent++; }
+            catch (Exception ex) { Log?.Invoke("DTMF не отправлен на линию: " + ex.Message); }
+        }
+        // Тихий отказ недопустим: разбор жалобы «телефон не набирает добавочный» иначе
+        // начинается и заканчивается ничем.
+        if (sent == 0) Log?.Invoke("DTMF не отправлен: активной линии нет");
     }
 
     private bool _dtmfToneOk = true;
@@ -556,8 +800,11 @@ internal sealed partial class LinphoneCore : IDisposable
         if (call == IntPtr.Zero) return false;
         IntPtr addr = linphone_core_interpret_url(_core, target.Trim());
         if (addr == IntPtr.Zero) return false;
+        NoteTransferStarted();   // следующий итог от ядра относится к ЭТОМУ REFER
         bool ok = linphone_call_transfer_to(call, addr) == 0;
         linphone_address_unref(addr);
+        // REFER не ушёл — итога не будет вовсе, ждать его нечего.
+        if (!ok) _transferReported = true;
         return ok;
     }
 
@@ -574,7 +821,12 @@ internal sealed partial class LinphoneCore : IDisposable
             IntPtr c = bctbx_list_get_data(it);
             if (c == IntPtr.Zero || c == current) continue;
             if ((LinphoneCallState)linphone_call_get_state(c) is LinphoneCallState.Paused or LinphoneCallState.PausedByRemote)
-                return linphone_call_transfer_to_another(c, current) == 0;
+            {
+                NoteTransferStarted();   // см. OnTransferStateChanged
+                bool ok = linphone_call_transfer_to_another(c, current) == 0;
+                if (!ok) _transferReported = true;
+                return ok;
+            }
         }
         return false;
     }
@@ -584,13 +836,15 @@ internal sealed partial class LinphoneCore : IDisposable
     // ------------------------------------------------------------------
     // Presence (статус коллег) — для избранного
     // ------------------------------------------------------------------
-    private void OnNotifyPresenceReceived(IntPtr core, IntPtr friend) => PresenceChanged?.Invoke();
+    private void OnNotifyPresenceReceived(IntPtr core, IntPtr friend) =>
+        SafeCallback(nameof(OnNotifyPresenceReceived), () => PresenceChanged?.Invoke());
 
     // ------------------------------------------------------------------
     // BLF: подписка «Event: dialog» (dialog-info+xml, RFC 4235)
     // ------------------------------------------------------------------
-    /// <summary>Линия коллеги сменила состояние: номер и что с ним. Поднимается С ПОТОКА ЯДРА.</summary>
-    public event Action<string, DialogState>? DialogStateChanged;
+    /// <summary>Линия коллеги сменила состояние: номер, что с ним и кто на том конце
+    /// (пусто, если АТС не сообщила). Поднимается С ПОТОКА ЯДРА.</summary>
+    public event Action<string, DialogState, string>? DialogStateChanged;
 
     // Активные подписки: номер → LinphoneEvent (наша ссылка, освобождаем при отписке).
     private readonly Dictionary<string, IntPtr> _dialogSubs = new(StringComparer.OrdinalIgnoreCase);
@@ -660,35 +914,81 @@ internal sealed partial class LinphoneCore : IDisposable
             string ext = DialogInfoParser.Entity(xml);
             var state = DialogInfoParser.Parse(xml);
             // Тело не разобрали — молчим: «не знаю» не должно гасить лампу.
-            if (ext.Length > 0 && state != DialogState.Unknown) DialogStateChanged?.Invoke(ext, state);
+            if (ext.Length > 0 && state != DialogState.Unknown)
+                DialogStateChanged?.Invoke(ext, state, DialogInfoParser.RemoteIdentity(xml));
         }
         catch (Exception e) { Log?.Invoke("BLF: NOTIFY не разобран — " + e.Message); }
     }
 
+    /// <summary>Список аудиоустройств изменился. Поднимается С ПОТОКА ЯДРА.</summary>
+    public event Action? AudioDevicesChanged;
+
+    private void OnAudioDevicesListUpdated(IntPtr core) =>
+        SafeCallback(nameof(OnAudioDevicesListUpdated), () =>
+        {
+            // Гарнитуру воткнули или выдернули — снимок «есть ли микрофон» обязан обновиться
+            // сразу, а не через две секунды: полоска уровня отвечает на вопрос «меня слышно?».
+            RefreshMicPresence();
+            AudioDevicesChanged?.Invoke();
+        });
+
+    /// <summary>Идентификаторы доступных устройств записи/воспроизведения.</summary>
+    public IReadOnlyList<string> AudioDeviceIds(bool input) =>
+        (input ? GetInputDevices() : GetOutputDevices()).Select(d => d.Id).ToList();
+
     /// <summary>MWI (message-summary) от АТС — новые сообщения голосовой почты. Asterisk шлёт
     /// unsolicited NOTIFY (mailbox на endpoint'е) — подписка не нужна, linphoneEvent = Zero.</summary>
-    private void OnMwiChanged(IntPtr core, IntPtr linphoneEvent, IntPtr mwi)
-    {
-        if (mwi == IntPtr.Zero) return;
-        try
+    private void OnMwiChanged(IntPtr core, IntPtr linphoneEvent, IntPtr mwi) =>
+        SafeCallback(nameof(OnMwiChanged), () =>
         {
-            bool waiting = linphone_message_waiting_indication_has_message_waiting(mwi) != 0;
-            int nbNew = (int)linphone_message_waiting_indication_get_nb_new(mwi);
-            VoicemailChanged?.Invoke(waiting, nbNew);
-        }
-        catch (EntryPointNotFoundException) { /* нет функций в этой сборке SDK */ }
-    }
+            if (mwi == IntPtr.Zero) return;
+            try
+            {
+                bool waiting = linphone_message_waiting_indication_has_message_waiting(mwi) != 0;
+                int nbNew = (int)linphone_message_waiting_indication_get_nb_new(mwi);
+                VoicemailChanged?.Invoke(waiting, nbNew);
+            }
+            catch (EntryPointNotFoundException) { /* нет функций в этой сборке SDK */ }
+        });
 
-    /// <summary>Состояние трансфер-звонка (результат REFER). Connected — собеседник дозвонился
-    /// до цели; Error/End — перевод не удался. Прочие промежуточные состояния игнорируем.</summary>
-    private void OnTransferStateChanged(IntPtr core, IntPtr transfered, int newCallState)
-    {
-        var st = (LinphoneCallState)newCallState;
-        if (st is LinphoneCallState.Connected or LinphoneCallState.StreamsRunning)
-            TransferResult?.Invoke(true);
-        else if (st is LinphoneCallState.Error or LinphoneCallState.End)
-            TransferResult?.Invoke(false);
-    }
+    /// <summary>Итог перевода по этому REFER уже сообщён. Взводится в момент отправки REFER.</summary>
+    private bool _transferReported = true;
+
+    /// <summary>
+    /// Состояние трансфер-звонка (результат REFER).
+    ///
+    /// ВАЖНО: итог сообщается РОВНО ОДИН РАЗ на один REFER, и решает его ПЕРВОЕ значимое
+    /// состояние, а не последнее. Колбэк отдаёт состояние переведённого звонка, а его жизнь
+    /// на успехе не заканчивается: по RFC 3515 результат приходит серией NOTIFY с sipfrag
+    /// (100 Trying → 200 OK), после чего звонок живёт обычной жизнью и когда-нибудь получает
+    /// End. Прежний код поднимал на этом «перевод не удался» — то есть по УСПЕШНОМУ переводу
+    /// приходили оба события, и провал последним. Пользователь видел красное «Перевод не
+    /// удался» через несколько секунд после того, как перевод прошёл, и перезванивал уже
+    /// переведённому абоненту. Парковку ломало тем же: флаг парковки съедало первое событие,
+    /// а второе уходило по ветке обычного перевода.
+    /// </summary>
+    private void OnTransferStateChanged(IntPtr core, IntPtr transfered, int newCallState) =>
+        SafeCallback(nameof(OnTransferStateChanged), () =>
+        {
+            if (_transferReported) return;
+            var st = (LinphoneCallState)newCallState;
+            // Успех: собеседник дозвонился до цели.
+            if (st is LinphoneCallState.Connected or LinphoneCallState.StreamsRunning)
+            {
+                _transferReported = true;
+                TransferResult?.Invoke(true);
+            }
+            // Провал: терминальное состояние БЕЗ предшествующего соединения (занято,
+            // не найден, отказ). После успеха сюда уже не попадём — флаг взведён.
+            else if (st is LinphoneCallState.Error or LinphoneCallState.End)
+            {
+                _transferReported = true;
+                TransferResult?.Invoke(false);
+            }
+        });
+
+    /// <summary>Начинаем новый перевод: следующий итог от ядра относится к нему.</summary>
+    private void NoteTransferStarted() => _transferReported = false;
 
     /// <summary>Подписаться на присутствие указанных абонентов: создаёт/находит друзей в списке
     /// по умолчанию, УБИРАЕТ лишних и включает SUBSCRIBE. Требует поддержки presence на сервере.</summary>
@@ -857,16 +1157,40 @@ internal sealed partial class LinphoneCore : IDisposable
         };
     }
 
-    /// <summary>Переключить микрофон. Возвращает новое состояние (true = заглушён).</summary>
-    public bool ToggleMute()
+    // Состояние микрофона держим снимком и объявляем событием, а не возвращаем из команды.
+    // Разница принципиальная: команда уходит на поток ядра, и её результат вызывающий получал
+    // синхронным ожиданием, которое по таймауту отдавало «микрофон включён» — после чего ядро
+    // всё-таки выключало микрофон, и интерфейс показывал ровно обратное правде. Вопрос
+    // «меня слышно?» — не тот, на который можно отвечать наугад.
+    private volatile bool _micMutedSnapshot;
+
+    /// <summary>Микрофон заглушён (снимок; безопасно читать с любого потока).</summary>
+    public bool MicMutedSnapshot => _micMutedSnapshot;
+
+    /// <summary>Микрофон включили или выключили. Поднимается С ПОТОКА ЯДРА.</summary>
+    public event Action<bool>? MicMuteChanged;
+
+    private void SetMicMutedSnapshot(bool muted)
     {
-        if (_core == IntPtr.Zero) return false;
+        if (_micMutedSnapshot == muted) return;
+        _micMutedSnapshot = muted;
+        MicMuteChanged?.Invoke(muted);
+    }
+
+    /// <summary>Переключить микрофон. Новое состояние приходит событием
+    /// <see cref="MicMuteChanged"/> — интерфейс рисует по нему, а не по возврату.</summary>
+    public void ToggleMute()
+    {
+        if (_core == IntPtr.Zero) return;
         IntPtr call = CurrentCall;
         if (call != IntPtr.Zero)
         {
             bool muted = linphone_call_get_microphone_muted(call) != 0;
             linphone_call_set_microphone_muted(call, muted ? 0 : 1);
-            return !muted;
+            // Читаем обратно, а не полагаемся на «должно было получиться»: ядро могло
+            // не применить изменение, и тогда врать интерфейсу нельзя.
+            SetMicMutedSnapshot(linphone_call_get_microphone_muted(call) != 0);
+            return;
         }
         // Конференция: «текущего» звонка нет (get_current_call = NULL) — глушим микрофон
         // на уровне ядра. Обратно включается там же или автоматически при конце звонков.
@@ -874,21 +1198,28 @@ internal sealed partial class LinphoneCore : IDisposable
         {
             bool enabled = linphone_core_mic_enabled(_core) != 0;
             linphone_core_enable_mic(_core, enabled ? 0 : 1);
-            return enabled;   // был включён → теперь заглушен
+            SetMicMutedSnapshot(linphone_core_mic_enabled(_core) == 0);
         }
-        catch (EntryPointNotFoundException) { return false; }
+        catch (EntryPointNotFoundException) { }
     }
 
-    /// <summary>Поставить звонок на удержание / снять. Возвращает true, если поставлен на удержание.</summary>
-    public bool ToggleHold()
+    /// <summary>Поставить звонок на удержание или снять.
+    ///
+    /// Ничего не возвращает СОЗНАТЕЛЬНО. linphone_call_pause только отправляет re-INVITE, и
+    /// сервер вправе ответить отказом; прежний вариант рапортовал «поставлено» сразу после
+    /// отправки, и кнопка показывала «Возобновить» при живом, никуда не убранном разговоре —
+    /// человек считал, что собеседник его не слышит, и говорил вслух то, что не предназначалось
+    /// для его ушей. Настоящее состояние приходит событием смены состояния звонка
+    /// (Pausing → Paused либо, при отказе, оставшийся StreamsRunning), и рисовать надо по нему.</summary>
+    public void ToggleHold()
     {
-        if (_core == IntPtr.Zero) return false;
+        if (_core == IntPtr.Zero) return;
         // Активный разговор есть — ставим на удержание.
         IntPtr call = CurrentCall;
         if (call != IntPtr.Zero)
         {
             linphone_call_pause(call);
-            return true;
+            return;
         }
         // Активного нет: удержанный звонок НЕ является «текущим» для liblinphone
         // (get_current_call для него возвращает NULL) — ищем его в списке и возобновляем.
@@ -900,10 +1231,9 @@ internal sealed partial class LinphoneCore : IDisposable
             if ((LinphoneCallState)linphone_call_get_state(c) is LinphoneCallState.Paused or LinphoneCallState.Pausing)
             {
                 linphone_call_resume(c);
-                return false;
+                return;
             }
         }
-        return false;
     }
 
     public int CurrentCallDuration
@@ -915,10 +1245,42 @@ internal sealed partial class LinphoneCore : IDisposable
         }
     }
 
-    private bool _recording;
-    private string? _recordPath;   // файл записи для текущего звонка (задаётся при установке вызова)
-    public bool IsRecording => _recording;
+    // Пишущиеся ПРЯМО СЕЙЧАС звонки. Список, а не флаг: в конференции линий несколько, у каждой
+    // свой файл (он задан в параметрах вызова при установке — см. BuildCallParamsWithRecording).
+    // С одним флагом запись в конференции была невозможна в принципе: ToggleRecording искал
+    // «текущий» звонок, а у конференции его нет (get_current_call возвращает NULL), и кнопка
+    // молча не делала ничего — ни файла, ни строки в журнале.
+    private readonly List<IntPtr> _recordingCalls = new();
+
+    // Путь файла — на КАЖДУЮ линию, а не один на всех. Общее поле при двух звонках перетиралось
+    // вторым вызовом, и пользователю показывался путь файла ЧУЖОГО разговора. Ключ — указатель
+    // звонка, как у кодека и шифрования; чистится там же, на Released.
+    private readonly Dictionary<IntPtr, string> _recordPathByCall = new();
+    private string? _recordPath;   // файл, о котором сообщаем пользователю (последний начатый)
+
+    public bool IsRecording => _recordingCalls.Count > 0 || _recordingConference != IntPtr.Zero;
     public string? RecordPath => _recordPath;
+
+    // Состояние записи держим снимком и объявляем событием — по той же причине, что состояние
+    // микрофона. Команда уходит на поток ядра, и её результат вызывающий получал синхронным
+    // ожиданием, которое по просрочке отдавало «не пишется», после чего ядро всё-таки начинало
+    // писать. Для продукта, который записывает разговоры, значение имеет файл, а не кнопка.
+    private volatile bool _recordingSnapshot;
+
+    /// <summary>Идёт ли запись (снимок; безопасно читать с любого потока).</summary>
+    public bool RecordingSnapshot => _recordingSnapshot;
+
+    /// <summary>Запись началась или закончилась. Поднимается С ПОТОКА ЯДРА.</summary>
+    public event Action<bool>? RecordingChanged;
+
+    /// <summary>Пересчитать снимок после любой мутации записи и сообщить об изменении.</summary>
+    private void SyncRecordingSnapshot()
+    {
+        bool now = IsRecording;
+        if (_recordingSnapshot == now) return;
+        _recordingSnapshot = now;
+        RecordingChanged?.Invoke(now);
+    }
 
     /// <summary>Каталог записей по умолчанию — Документы/LPhoneRecordings.</summary>
     public static string DefaultRecordingsDir =>
@@ -943,7 +1305,10 @@ internal sealed partial class LinphoneCore : IDisposable
         try { Directory.CreateDirectory(dir); } catch { }
         // Каталог мог оказаться под кириллическим профилем (C:\Users\Роман\Документы) —
         // mediastreamer не откроет такой путь. Приводим к ASCII short-path (8.3).
-        return AsciiSafePath(Path.Combine(dir, $"call-{DateTime.Now:yyyyMMdd-HHmmss}.mkv")).Replace('\\', '/');
+        // Разделители в дате не для красоты: маскировка номеров в app.log режет любые
+        // последовательности от семи цифр, и «20260803» превращалось в «2026**03» — найти
+        // файл по строке из журнала было нельзя.
+        return AsciiSafePath(Path.Combine(dir, $"call-{DateTime.Now:yyyy-MM-dd_HH-mm-ss}.mkv")).Replace('\\', '/');
     }
 
     /// <summary>Возвращает путь, гарантированно открываемый нативными библиотеками:
@@ -984,34 +1349,164 @@ internal sealed partial class LinphoneCore : IDisposable
         if (_core == IntPtr.Zero) return IntPtr.Zero;
         IntPtr p = linphone_core_create_call_params(_core, callOrZero);
         if (p == IntPtr.Zero) return IntPtr.Zero;
-        _recordPath = NextRecordFile();
-        linphone_call_params_set_record_file(p, _recordPath);
+        string path = NextRecordFile();
+        _pendingRecordPath = path;   // связать с линией сможем только когда ядро её создаст
+        linphone_call_params_set_record_file(p, path);
         return p;
     }
 
+    /// <summary>Файл, выданный последнему устанавливаемому звонку: указателя линии в этот момент
+    /// ещё нет (исходящий) либо он относится к другой стороне (входящий). Привязываем к линии
+    /// на первом же её состоянии — см. HandleCallState.</summary>
+    private string? _pendingRecordPath;
+
     /// <summary>Начать/остановить запись текущего разговора. Путь уже задан при установке вызова
-    /// (см. <see cref="BuildCallParamsWithRecording"/>). Возвращает новое состояние записи.</summary>
-    public bool ToggleRecording()
+    /// (см. <see cref="BuildCallParamsWithRecording"/>).
+    ///
+    /// Результат наружу НЕ возвращается: он приходит событием <see cref="RecordingChanged"/> и
+    /// снимком <see cref="RecordingSnapshot"/>. Прежний возврат вызывающий получал синхронным
+    /// ожиданием, и по просрочке (start_recording лезет в файловую систему — под антивирусом
+    /// или на сетевом диске это секунды) кнопка гасла, а запись при этом ШЛА. Для продукта,
+    /// который пишет разговоры, значение имеет файл, а не кнопка.</summary>
+    public void ToggleRecording()
     {
-        IntPtr call = CurrentCall;
-        if (call == IntPtr.Zero) return false;
-        if (_recording)
+        if (_core == IntPtr.Zero) return;
+        if (_recordingCalls.Count > 0 || _recordingConference != IntPtr.Zero) { StopAllRecording(); return; }
+        StartRecording();
+        SyncRecordingSnapshot();
+    }
+
+    private void StartRecording()
+    {
+        // Конференцию пишем ЦЕЛИКОМ, одним файлом с её микшированным звуком. Запускать
+        // рекордеры отдельных линий бесполезно: в конференции медиаграф пересобирается, и
+        // рекордер, заданный в параметрах вызова, в него не попадает — start_recording
+        // отрабатывает без ошибки, а файла не появляется (проверено живым звонком).
+        IntPtr conf = CurrentConference();
+        if (conf != IntPtr.Zero)
         {
-            linphone_call_stop_recording(call);
-            _recording = false;
+            string path = NextRecordFile();
+            try
+            {
+                if (linphone_conference_start_recording(conf, path) == 0)
+                {
+                    _recordingConference = conf;
+                    _recordPath = path;
+                    Log?.Invoke("Запись конференции начата: " + path);
+                    return;
+                }
+                Log?.Invoke("Запись конференции не начата: ядро вернуло ошибку");
+            }
+            catch (EntryPointNotFoundException)
+            {
+                Log?.Invoke("Запись конференции недоступна в этой сборке SDK");
+            }
+            return;
         }
-        else
+
+        foreach (IntPtr c in RecordableCalls())
         {
-            linphone_call_start_recording(call);
-            _recording = true;
+            try
+            {
+                linphone_call_start_recording(c);
+                _recordingCalls.Add(c);
+                // Файл этой линии, а не «последний выданный»: при двух звонках общее поле
+                // перетиралось, и пользователю показывался путь чужого разговора.
+                if (_recordPathByCall.TryGetValue(c, out string? p)) _recordPath = p;
+            }
+            catch (Exception ex) { Log?.Invoke("Запись: не удалось начать на линии — " + ex.Message); }
         }
-        return _recording;
+        if (_recordingCalls.Count == 0)
+        {
+            // Молчать нельзя: раньше кнопка «Запись» в конференции не оставляла ни файла,
+            // ни следа, и понять, пишется ли разговор, было невозможно.
+            Log?.Invoke("Запись не начата: активного разговора нет");
+            return;
+        }
+        Log?.Invoke($"Запись начата, линий: {_recordingCalls.Count}");
+    }
+
+    private IntPtr _recordingConference;   // конференция, которая пишется сейчас (const, не освобождать)
+
+    /// <summary>Текущая локальная конференция, либо Zero. Берём через любой её звонок:
+    /// linphone_core_get_conference объявлен устаревшим и в обёртке SDK уже отсутствует.</summary>
+    private IntPtr CurrentConference()
+    {
+        if (_core == IntPtr.Zero) return IntPtr.Zero;
+        for (IntPtr it = linphone_core_get_calls(_core); it != IntPtr.Zero; it = bctbx_list_next(it))
+        {
+            IntPtr c = bctbx_list_get_data(it);
+            if (c == IntPtr.Zero) continue;
+            try
+            {
+                IntPtr conf = linphone_call_get_conference(c);
+                if (conf != IntPtr.Zero) return conf;
+            }
+            catch (EntryPointNotFoundException) { return IntPtr.Zero; }
+        }
+        return IntPtr.Zero;
+    }
+
+    /// <summary>Финализировать запись конференции, пока её медиа ещё живо.</summary>
+    private void StopConferenceRecording()
+    {
+        if (_recordingConference == IntPtr.Zero) return;
+        try { linphone_conference_stop_recording(_recordingConference); } catch { }
+        _recordingConference = IntPtr.Zero;
+        Log?.Invoke("Запись конференции остановлена");
+        SyncRecordingSnapshot();
+    }
+
+    /// <summary>Что писать в обычном разговоре: его самого (конференция обрабатывается отдельно).</summary>
+    private List<IntPtr> RecordableCalls()
+    {
+        var result = new List<IntPtr>();
+        IntPtr cur = CurrentCall;
+        if (cur != IntPtr.Zero) { result.Add(cur); return result; }
+        for (IntPtr it = linphone_core_get_calls(_core); it != IntPtr.Zero; it = bctbx_list_next(it))
+        {
+            IntPtr c = bctbx_list_get_data(it);
+            if (c != IntPtr.Zero && !IsTerminal((LinphoneCallState)linphone_call_get_state(c))) result.Add(c);
+        }
+        return result;
+    }
+
+    /// <summary>Остановить запись одной линии (её звонок завершается).</summary>
+    private void StopRecording(IntPtr call)
+    {
+        if (!_recordingCalls.Remove(call)) return;
+        try { linphone_call_stop_recording(call); } catch { }
+        SyncRecordingSnapshot();
+    }
+
+    /// <summary>Остановить запись (конференции и/или отдельных линий) и финализировать файлы.</summary>
+    private void StopAllRecording()
+    {
+        StopConferenceRecording();
+        foreach (IntPtr c in _recordingCalls) { try { linphone_call_stop_recording(c); } catch { } }
+        if (_recordingCalls.Count > 0) Log?.Invoke("Запись остановлена");
+        _recordingCalls.Clear();
+        SyncRecordingSnapshot();
     }
 
     /// <summary>Передёрнуть сеть и перерегистрироваться (для авто-переподключения при смене сети).
     /// Во время разговора сеть НЕ передёргиваем: set_network_reachable(0) рвёт медиапотоки
     /// активного звонка (например, при подключении VPN, не меняющем основной маршрут) —
     /// ограничиваемся обновлением регистраций.</summary>
+    /// <summary>Явно объявить сеть доступной или недоступной.
+    ///
+    /// Нужно перед засыпанием машины: без un-REGISTER Asterisk считает контакт живым до конца
+    /// expires (по умолчанию час) и всё это время шлёт INVITE в никуда — звонящий слышит гудки,
+    /// сотрудник не слышит ничего. Отдельно от <see cref="RefreshNetwork"/>, потому что там
+    /// сеть передёргивается парой и только вне разговора, а здесь состояние выставляется
+    /// осознанно и надолго.</summary>
+    public void SetNetworkReachable(bool reachable)
+    {
+        if (_core == IntPtr.Zero) return;
+        linphone_core_set_network_reachable(_core, reachable ? 1 : 0);
+        Log?.Invoke(reachable ? "Сеть объявлена доступной" : "Сеть объявлена недоступной (снимаем регистрацию)");
+    }
+
     public void RefreshNetwork()
     {
         if (_core == IntPtr.Zero) return;
@@ -1049,30 +1544,24 @@ internal sealed partial class LinphoneCore : IDisposable
             long start = linphone_call_log_get_start_date(log);
             int dur = linphone_call_log_get_duration(log);
 
-            string arrow = incoming ? "↙" : "↗"; // вниз-влево / вверх-вправо
-            string when = start > 0 ? FormatCallDate(DateTimeOffset.FromUnixTimeSeconds(start).LocalDateTime) : "";
-            string sub = missed ? $"{Loc.S("St_Missed")} · {when}"
-                       : dur > 0 ? $"{when} · {dur / 60:00}:{dur % 60:00}"
-                       : when;
+            string sub = start > 0
+                ? CallLogFormat.Subtitle(DateTimeOffset.FromUnixTimeSeconds(start).LocalDateTime, DateTime.Now, dur)
+                : CallLogFormat.Duration(dur);
+
+            // Шифрование — наша пометка в ref_key: своего поля защиты у call_log нет.
+            string enc = "";
+            try { enc = CallLogTag.Encryption(PtrToUtf8(linphone_call_log_get_ref_key(log))); }
+            catch (EntryPointNotFoundException) { }
 
             result.Add(new CallLogEntry
             {
-                Remote = remote, Title = $"{arrow}  {name}", Subtitle = sub,
+                Remote = remote, Title = name, Subtitle = sub,
+                Arrow = incoming ? "↙" : "↗",   // вниз-влево / вверх-вправо
                 Missed = missed, Incoming = incoming, StartUnix = start,
+                Encryption = enc,
             });
         }
         return result;
-
-        // Сегодня — только время; иначе короткая дата + время. Порядок/разделители — по локали ОС
-        // (раньше был жёсткий «dd.MM HH:mm»).
-        static string FormatCallDate(DateTime dt)
-        {
-            var c = System.Globalization.CultureInfo.CurrentCulture;
-            string time = dt.ToString("t", c);
-            if (dt.Date == DateTime.Today) return time;
-            string date = dt.ToString("d", c);
-            return $"{date} {time}";
-        }
     }
 
     public void ClearCallHistory()
@@ -1131,6 +1620,237 @@ internal sealed partial class LinphoneCore : IDisposable
         linphone_core_enable_video_display(_core, 1);
     }
 
+    /// <summary>Запрошен ли АТС автоответ (интерком, оповещение, домофон) и через сколько
+    /// секунд. null — обычный звонок. Читаем ПРЕДЛОЖЕННЫЕ другой стороной параметры: только
+    /// в них видны произвольные заголовки входящего INVITE.</summary>
+    private int? IntercomDelay(IntPtr call)
+    {
+        if (call == IntPtr.Zero) return null;
+        try
+        {
+            IntPtr prm = linphone_call_get_remote_params(call);
+            if (prm == IntPtr.Zero) return null;
+            string? alertInfo = PtrToUtf8(linphone_call_params_get_custom_header(prm, "Alert-Info"));
+            string? callInfo = PtrToUtf8(linphone_call_params_get_custom_header(prm, "Call-Info"));
+            return IntercomHeaders.AutoAnswerDelaySeconds(alertInfo, callInfo);
+        }
+        catch (EntryPointNotFoundException) { return null; }   // нет доступа к заголовкам в этой сборке SDK
+    }
+
+    /// <summary>Короткий Call-ID звонка для журнала (первые 8 символов SIP Call-ID).
+    /// Полный слишком длинный для каждой строки, а восьми хватает, чтобы различить линии
+    /// и сопоставить их с трассой в liblinphone.log и с CDR на стороне АТС.</summary>
+    private static string? ShortCallId(IntPtr call)
+    {
+        if (call == IntPtr.Zero) return null;
+        try
+        {
+            IntPtr log = linphone_call_get_call_log(call);
+            if (log == IntPtr.Zero) return null;
+            string? id = PtrToUtf8(linphone_call_log_get_call_id(log));
+            if (string.IsNullOrEmpty(id)) return null;
+            return id!.Length <= 8 ? id : id[..8];
+        }
+        catch (EntryPointNotFoundException) { return null; }
+    }
+
+    /// <summary>Согласованный кодек, запомненный на StreamsRunning: к завершению звонка
+    /// медиасессия уже разобрана и узнать его неоткуда. Ключ — указатель звонка, чтобы в
+    /// конференции линии не путались между собой.</summary>
+    private readonly Dictionary<IntPtr, string> _codecByCall = new();
+
+    /// <summary>Защита медиа, запомненная на StreamsRunning — по той же причине, что и кодек:
+    /// current_params к завершению звонка отдаёт уже разобранную сессию, и вопрос «был ли этот
+    /// разговор зашифрован» получал ответ «нет» независимо от того, как было на самом деле.</summary>
+    private readonly Dictionary<IntPtr, string> _encByCall = new();
+
+    private void RememberCodec(IntPtr call)
+    {
+        if (call == IntPtr.Zero) return;
+        try
+        {
+            IntPtr cur = linphone_call_get_current_params(call);
+            if (cur == IntPtr.Zero) return;
+            IntPtr pt = linphone_call_params_get_used_audio_payload_type(cur);
+            if (pt == IntPtr.Zero) return;
+            string? mime = PtrToUtf8(linphone_payload_type_get_mime_type(pt));
+            if (!string.IsNullOrEmpty(mime)) _codecByCall[call] = mime!;
+        }
+        catch (EntryPointNotFoundException) { }
+    }
+
+    private void RememberEncryption(IntPtr call)
+    {
+        if (call == IntPtr.Zero) return;
+        string enc = CurrentCallEncryptionOf(call);
+        // "none" не запоминаем: при повторном StreamsRunning (перевод, hold) сессия может
+        // на мгновение оказаться без параметров, и это затёрло бы верный ответ.
+        if (enc != "none") _encByCall[call] = enc;
+    }
+
+    /// <summary>Чем БЫЛ зашифрован звонок — из запомненного на StreamsRunning.</summary>
+    private string RememberedEncryption(IntPtr call) =>
+        _encByCall.TryGetValue(call, out string? e) ? e : "none";
+
+    /// <summary>Громкость микрофона и динамика в текущем разговоре, шкала 0..1.
+    /// Опрашивается несколько раз в секунду, поэтому здесь ни одного выделения памяти
+    /// и ни одной строки — только два вызова в библиотеку.</summary>
+    public (float Mic, float Speaker) CurrentAudioLevels()
+    {
+        IntPtr call = CurrentCall;
+        if (call == IntPtr.Zero) return (0f, 0f);
+        try
+        {
+            return (AudioLevel.Normalize(linphone_call_get_record_volume(call)),
+                    AudioLevel.Normalize(linphone_call_get_play_volume(call)));
+        }
+        catch (EntryPointNotFoundException) { return (0f, 0f); }
+    }
+
+    /// <summary>Качество ТЕКУЩЕГО разговора. Опрашивается по таймеру, поэтому дешёвый:
+    /// одна копия статистики, которую тут же освобождаем. Без звонка — None.</summary>
+    public CallQuality CurrentQuality()
+    {
+        IntPtr call = CurrentCall;
+        if (call == IntPtr.Zero) return CallQuality.None;
+        try
+        {
+            float rating = linphone_call_get_current_quality(call);
+            IntPtr stats = linphone_call_get_audio_stats(call);   // КОПИЯ — освобождаем сами
+            if (stats == IntPtr.Zero) return CallQuality.None;
+            try
+            {
+                float loss = linphone_call_stats_get_receiver_loss_rate(stats);
+                float rtt = linphone_call_stats_get_round_trip_delay(stats);
+                float jitter = linphone_call_stats_get_receiver_interarrival_jitter(stats);
+                // RTT и джиттер библиотека отдаёт в СЕКУНДАХ — в миллисекундах эти числа
+                // выглядели бы правдоподобно и были бы неверны в тысячу раз.
+                return new CallQuality(rating, loss, (int)(rtt * 1000), (int)(jitter * 1000));
+            }
+            finally { try { linphone_call_stats_unref(stats); } catch { } }
+        }
+        catch (EntryPointNotFoundException) { return CallQuality.None; }
+    }
+
+    /// <summary>Итог звонка одной строкой: длительность, кодек, шифрование, потери, задержка,
+    /// причина завершения. Раньше разбор жалобы «плохо было слышно» начинался с переписки —
+    /// в журнале не было ничего, кроме последовательности состояний.</summary>
+    private string CallSummary(IntPtr call, LinphoneReason reason)
+    {
+        var parts = new List<string>();
+        int dur = 0;
+        try { dur = linphone_call_get_duration(call); } catch { }
+        parts.Add($"длит={dur / 60:00}:{dur % 60:00}");
+
+        // Кодек берём из запомненного при StreamsRunning: к моменту End медиасессия уже
+        // разобрана, и used_audio_payload_type возвращает NULL — в первой же живой проверке
+        // строка вышла без кодека именно поэтому.
+        if (_codecByCall.TryGetValue(call, out string? codec) && codec.Length > 0) parts.Add("кодек=" + codec);
+
+        parts.Add("шифр=" + RememberedEncryption(call));
+
+        try
+        {
+            IntPtr stats = linphone_call_get_audio_stats(call);   // КОПИЯ — освобождаем сами
+            if (stats != IntPtr.Zero)
+            {
+                try
+                {
+                    parts.Add($"потери={linphone_call_stats_get_receiver_loss_rate(stats):0.0}%");
+                    float rtt = linphone_call_stats_get_round_trip_delay(stats);
+                    // 0 означает «RTCP ещё не дал оценку», а не «идеальная линия».
+                    if (rtt > 0) parts.Add($"задержка={rtt * 1000:0} мс");
+                }
+                finally { try { linphone_call_stats_unref(stats); } catch { } }
+            }
+        }
+        catch (EntryPointNotFoundException) { }
+
+        if (reason != LinphoneReason.None) parts.Add("причина=" + reason);
+        return string.Join(" ", parts);
+    }
+
+    /// <summary>
+    /// Записать в журнал, чем был зашифрован разговор.
+    ///
+    /// У call_log в liblinphone нет поля защиты медиа — вообще нет такого API. Поэтому
+    /// пишем сами в ref_key (см. CallLogTag): без этого узнать, был ли конкретный разговор
+    /// зашифрован, можно было только из текстового лога, а туда пользователь не ходит.
+    ///
+    /// Незашифрованный звонок не помечаем: отсутствие метки и так значит «защиты не было»,
+    /// а лишняя запись в базу на каждый звонок ни к чему.
+    /// </summary>
+    private void TagCallLogEncryption(IntPtr call)
+    {
+        try
+        {
+            string tag = CallLogTag.Format(RememberedEncryption(call));
+            if (tag.Length == 0) return;
+
+            IntPtr log = linphone_call_get_call_log(call);
+            if (log != IntPtr.Zero) linphone_call_log_set_ref_key(log, tag);
+        }
+        catch (EntryPointNotFoundException) { /* сборка SDK без ref_key — журнал просто без замков */ }
+        catch (Exception ex) { Log?.Invoke("Пометка журнала не записана: " + ex.Message); }
+    }
+
+    /// <summary>Чем зашифрован КОНКРЕТНЫЙ звонок (см. CurrentCallEncryption).</summary>
+    private static string CurrentCallEncryptionOf(IntPtr call)
+    {
+        if (call == IntPtr.Zero) return "none";
+        try
+        {
+            IntPtr cur = linphone_call_get_current_params(call);
+            if (cur == IntPtr.Zero) return "none";
+            return (LinphoneMediaEncryption)linphone_call_params_get_media_encryption(cur) switch
+            {
+                LinphoneMediaEncryption.SRTP => "srtp",
+                LinphoneMediaEncryption.ZRTP => "zrtp",
+                LinphoneMediaEncryption.DTLS => "dtls",
+                _ => "none",
+            };
+        }
+        catch (EntryPointNotFoundException) { return "none"; }
+    }
+
+    /// <summary>Защита ТЕКУЩЕГО разговора целиком: чем зашифровано медиа и по какому каналу
+    /// шла сигнализация. Одним вызовом, потому что порознь эти два факта вводят в заблуждение
+    /// (см. <see cref="CallSecurity"/>).</summary>
+    public CallSecurity CurrentCallSecurity()
+    {
+        IntPtr call = CurrentCall;
+        if (call == IntPtr.Zero) return CallSecurity.None;
+        return new CallSecurity(CurrentCallEncryptionOf(call), SignallingIsTls(call));
+    }
+
+    /// <summary>Идёт ли сигнализация звонка по TLS. Берём транспорт аккаунта, через который
+    /// установлен звонок; если ядро его не сообщает — аккаунт по умолчанию (исходящие идут
+    /// через него).</summary>
+    private bool SignallingIsTls(IntPtr call)
+    {
+        try
+        {
+            IntPtr acc = IntPtr.Zero;
+            try { acc = linphone_call_get_account(call); }
+            catch (EntryPointNotFoundException) { /* нет в этой сборке SDK — возьмём основной */ }
+            if (acc == IntPtr.Zero) acc = linphone_core_get_default_account(_core);
+            if (acc == IntPtr.Zero) return false;
+            IntPtr p = linphone_account_get_params(acc);
+            if (p == IntPtr.Zero) return false;
+            return (LinphoneTransportType)linphone_account_params_get_transport(p) == LinphoneTransportType.Tls;
+        }
+        catch (EntryPointNotFoundException) { return false; }
+    }
+
+    /// <summary>Чем зашифрован ТЕКУЩИЙ разговор: "none" / "srtp" / "zrtp" / "dtls".
+    ///
+    /// Берём именно current_params — то, о чём стороны договорились в SDP, а не то, что мы
+    /// предложили. Настройка «шифрование по умолчанию SRTP» про конкретный звонок не говорит
+    /// ничего: режим optimistic специально пропускает звонок открытым, если вторая сторона
+    /// SRTP не умеет. До сих пор пользователь не мог узнать, защищён ли разговор, — включённое
+    /// шифрование без видимого подтверждения это театр, а не безопасность.</summary>
+    public string CurrentCallEncryption() => CurrentCallEncryptionOf(CurrentCall);
+
     /// <summary>Активен ли видеопоток текущего звонка (в любую сторону) — показывать ли
     /// область видео на экране разговора.</summary>
     public bool IsVideoActive()
@@ -1153,23 +1873,46 @@ internal sealed partial class LinphoneCore : IDisposable
     /// <summary>Отправляем ли мы РЕАЛЬНЫЕ кадры (камера включена и не подменена картинкой).</summary>
     public bool IsCameraOn() => IsSendingVideo() && !_cameraMuted;
 
+    // Состояние камеры — снимком и событием, как микрофон и запись. Прежний возврат из
+    // ToggleVideo вызывающий получал ожиданием, и по просрочке кнопка показывала состояние,
+    // обратное тому, которое ядро устанавливало секундой позже.
+    private volatile bool _cameraOnSnapshot;
+
+    /// <summary>Моя камера передаёт кадры (снимок; безопасно читать с любого потока).</summary>
+    public bool CameraOnSnapshot => _cameraOnSnapshot;
+
+    /// <summary>Камеру включили или выключили. Поднимается С ПОТОКА ЯДРА.</summary>
+    public event Action<bool>? CameraStateChanged;
+
+    private void SyncCameraSnapshot()
+    {
+        bool now = IsCameraOn();
+        if (_cameraOnSnapshot == now) return;
+        _cameraOnSnapshot = now;
+        CameraStateChanged?.Invoke(now);
+    }
+
     /// <summary>
     /// Кнопка «Видео». Видео в звонке ещё нет — добавляем поток (re-INVITE, SendRecv).
     /// Видео уже идёт — камеру НЕ гасим через RecvOnly-re-INVITE: телефоны (проверено на
     /// Fanvil 378) отвечают на такой re-INVITE 200 OK и тут же шлют BYE — звонок рвался.
     /// Вместо этого подменяем источник на статичную картинку: SDP не меняется, звонок цел,
-    /// собеседник перестаёт видеть нас. Возвращает новое состояние «моя камера включена».
+    /// собеседник перестаёт видеть нас.
+    ///
+    /// Результат наружу НЕ возвращается — он приходит событием <see cref="CameraStateChanged"/>
+    /// и снимком <see cref="CameraOnSnapshot"/> (см. ToggleMute: ждать ответа ядра на клике
+    /// нельзя, а рисовать «как должно было получиться» — значит однажды соврать).
     /// </summary>
-    public bool ToggleVideo()
+    public void ToggleVideo()
     {
         IntPtr call = CurrentCall;
-        if (call == IntPtr.Zero) return false;
+        if (call == IntPtr.Zero) return;
 
         if (IsVideoActive())
         {
             SetCameraMuted(!_cameraMuted);
             _userWantsCamera = !_cameraMuted;
-            return !_cameraMuted;
+            return;
         }
 
         // Видео в звонке нет — поднимаем захват/отображение и добавляем видеопоток.
@@ -1178,13 +1921,17 @@ internal sealed partial class LinphoneCore : IDisposable
         linphone_core_enable_video_capture(_core, 1);
         linphone_core_enable_video_display(_core, 1);
         IntPtr p = linphone_core_create_call_params(_core, call);
-        if (p == IntPtr.Zero) return false;
+        if (p == IntPtr.Zero) return;
         linphone_call_params_enable_video(p, 1);
         linphone_call_params_set_video_direction(p, (int)LinphoneMediaDirection.SendRecv);
         linphone_call_update(call, p);
-        _videoActiveSnapshot = true;   // не ждём StreamsRunning: UI покажет область сразу
+        linphone_call_params_unref(p);   // параметры наши — иначе утечка на каждое включение видео
+        _videoActiveSnapshot = true;     // не ждём StreamsRunning: UI покажет область сразу
+        // Кадры пойдут только после re-INVITE, но решение пользователя уже принято, и кнопка
+        // обязана отозваться немедленно — иначе он нажмёт её второй раз.
+        _cameraOnSnapshot = true;
+        CameraStateChanged?.Invoke(true);
         Log?.Invoke("Видео включено");
-        return true;
     }
 
     /// <summary>Подменить источник видео статичной картинкой (или вернуть камеру).
@@ -1204,6 +1951,7 @@ internal sealed partial class LinphoneCore : IDisposable
             try { linphone_core_set_video_device(_core, _cameraBeforeMute); } catch { }
         }
         Log?.Invoke(muted ? "Моя камера выключена (статичная картинка)" : "Моя камера включена");
+        SyncCameraSnapshot();
     }
 
     /// <summary>
@@ -1303,7 +2051,34 @@ internal sealed partial class LinphoneCore : IDisposable
     private readonly Dictionary<string, int> _authFailures = new(StringComparer.OrdinalIgnoreCase);
     private const int MaxAuthFailures = 3;
 
-    private void OnRegistrationStateChanged(IntPtr core, IntPtr proxyConfig, int state, string? message)
+    /// <summary>
+    /// Тело нативного колбэка. Обёртка обязательна для КАЖДОГО из них.
+    ///
+    /// Managed-исключение, поднявшееся через границу native → managed, не перехватывается
+    /// ни обработчиком XAML, ни TaskScheduler: рантайм считает такой стек невосстановимым
+    /// и убивает процесс на месте. То есть любая мелочь в разборе события (неожиданный NULL,
+    /// строка в чужой кодировке, исключение подписчика) роняет софтфон посреди разговора —
+    /// худший из возможных отказов для этого продукта.
+    ///
+    /// Здесь исключение обязано умереть, оставив след в журнале. Само событие при этом
+    /// теряется — это осознанный размен: потерянное обновление интерфейса лучше, чем
+    /// оборванный звонок.
+    /// </summary>
+    private void SafeCallback(string name, Action body)
+    {
+        try { body(); }
+        catch (Exception ex)
+        {
+            // Логирование тоже под защитой: подписчик Log живёт в приложении и тоже может бросить.
+            try { Log?.Invoke($"ОШИБКА в колбэке {name}: {ex.GetType().Name}: {ex.Message}"); } catch { }
+        }
+    }
+
+    private void OnRegistrationStateChanged(IntPtr core, IntPtr proxyConfig, int state, string? message) =>
+        SafeCallback(nameof(OnRegistrationStateChanged),
+            () => HandleRegistrationState(proxyConfig, state, message));
+
+    private void HandleRegistrationState(IntPtr proxyConfig, int state, string? message)
     {
         var st = (LinphoneRegistrationState)state;
         if (proxyConfig != IntPtr.Zero)
@@ -1362,7 +2137,10 @@ internal sealed partial class LinphoneCore : IDisposable
         catch { return ""; }
     }
 
-    private void OnCallStateChanged(IntPtr core, IntPtr call, int state, string? message)
+    private void OnCallStateChanged(IntPtr core, IntPtr call, int state, string? message) =>
+        SafeCallback(nameof(OnCallStateChanged), () => HandleCallState(call, state, message));
+
+    private void HandleCallState(IntPtr call, int state, string? message)
     {
         string? remote = null;
         bool incoming = false;
@@ -1377,10 +2155,19 @@ internal sealed partial class LinphoneCore : IDisposable
         }
         // Если завершается записываемый звонок — финализируем файл (иначе MKV не запишется на диск).
         var st = (LinphoneCallState)state;
-        if (_recording && call != IntPtr.Zero && IsTerminal(st))
+        // Останавливаем запись ТОЛЬКО завершающейся линии: если писались отдельные звонки,
+        // остальные продолжают. Запись конференции финализируем на первом же завершении:
+        // конференция всё равно распадается, а файл надо закрыть, пока медиа живо.
+        if (call != IntPtr.Zero && IsTerminal(st))
         {
-            try { linphone_call_stop_recording(call); } catch { }
-            _recording = false;   // запись остановлена сразу: не оставляем флаг «горящим» на оставшемся звонке
+            StopRecording(call);
+            StopConferenceRecording();
+        }
+        // Файл записи, выданный этой линии при установке вызова, связываем с её указателем:
+        // раньше путь был один на всех, и второй звонок перетирал его первому.
+        if (call != IntPtr.Zero && _pendingRecordPath is { Length: > 0 } pending && !IsTerminal(st))
+        {
+            if (_recordPathByCall.TryAdd(call, pending)) _pendingRecordPath = null;
         }
         // Видео принято автоматически (собеседник включил камеру), а пользователь свою
         // камеру не включал — не начинаем вещать: подменяем источник картинкой. Ответить
@@ -1394,10 +2181,12 @@ internal sealed partial class LinphoneCore : IDisposable
             // иначе следующий видеозвонок молча уйдёт с картинкой.
             SetCameraMuted(false);
             _userWantsCamera = false;
-            _recording = false; _recordPath = null;   // подстраховка: звонков не осталось
+            StopAllRecording(); _recordPath = null;   // подстраховка: звонков не осталось
+            _pendingRecordPath = null;
             // Мьют уровня ядра (конференция) переживает звонки — включаем микрофон обратно,
             // иначе следующий разговор молча начнётся с выключенным микрофоном.
             try { if (linphone_core_mic_enabled(_core) == 0) linphone_core_enable_mic(_core, 1); } catch { }
+            SetMicMutedSnapshot(false);   // звонков нет — состояние кнопки обязано вернуться в исходное
         }
         if (CallCount <= 1) _conferenceActive = false;   // конференция кончилась вместе со вторым звонком
         // Разговор завершён, а второй звонок остался на удержании — возобновляем его сами
@@ -1418,11 +2207,53 @@ internal sealed partial class LinphoneCore : IDisposable
         {
             try { reason = (LinphoneReason)linphone_call_get_reason(call); } catch { }
         }
+        string? callId = ShortCallId(call);
+
+        // Кодек запоминаем, пока медиасессия жива: к завершению звонка его уже не узнать.
+        if (st == LinphoneCallState.StreamsRunning)
+        {
+            // Сверяем снимок микрофона с тем, что реально в звонке: медиасессия пересобирается
+            // при удержании, переводе и включении видео, и состояние мьюта могло измениться
+            // не по нашей команде.
+            if (call != IntPtr.Zero)
+            {
+                try { SetMicMutedSnapshot(linphone_call_get_microphone_muted(call) != 0); } catch { }
+            }
+            RememberCodec(call);
+            RememberEncryption(call);
+            // Пометку журнала ставим ИМЕННО ЗДЕСЬ. На End она не доживает до базы: строка
+            // журнала пишется вместе с завершением звонка, и ref_key, выставленный в тот же
+            // момент, в неё уже не попадает — проверено живьём, refkey оставался пустым.
+            TagCallLogEncryption(call);
+        }
+
+        // Итог звонка — одной строкой и ровно один раз (на End; Released приходит следом
+        // за ним и повторил бы её). К этому моменту медиа ещё живо и статистика доступна.
+        if (call != IntPtr.Zero && st == LinphoneCallState.End)
+        {
+            try { Log?.Invoke($"ИТОГ звонка {callId}: {CallSummary(call, reason)}"); }
+            catch (Exception ex) { Log?.Invoke("Итог звонка не собран: " + ex.Message); }
+        }
+        // Указатель звонка после Released переиспользуется аллокатором — запись обязана уйти,
+        // иначе следующий звонок унаследует чужой кодек, а словарь будет расти весь сеанс.
+        if (call != IntPtr.Zero && st == LinphoneCallState.Released)
+        {
+            _codecByCall.Remove(call);
+            _encByCall.Remove(call);
+            _recordPathByCall.Remove(call);
+        }
+
         // Снимок ДО события: подписчик (UI) прочитает уже согласованные значения без RunOnCore.
         _callCountSnapshot = CallCount;
         _videoActiveSnapshot = IsVideoActive();
+        SyncCameraSnapshot();
+        SyncRecordingSnapshot();
 
-        CallStateChanged?.Invoke(new CallEvent(st, message, remote, incoming, duration, reason));
+        // Заголовки интеркома есть только у входящего INVITE — читаем ровно там.
+        int? intercom = st == LinphoneCallState.IncomingReceived ? IntercomDelay(call) : null;
+
+        CallStateChanged?.Invoke(
+            new CallEvent(st, message, remote, incoming, duration, reason, callId, intercom));
     }
 
     /// <summary>Отложить действие до выхода из нативного колбэка: фасад подставляет сюда
@@ -1470,18 +2301,49 @@ internal sealed partial class LinphoneCore : IDisposable
     /// раз часть файлов была занята (например, вторым экземпляром до single-instance) — доедет
     /// сейчас. Подкаталоги (SID-профили, свои и чужих пользователей) не трогаем; старый профиль
     /// состоял только из файлов. Перенесённые файлы сохраняют старый «открытый» DACL — его
-    /// вычищает HardenDirectoryAcl, который вызывается сразу после (см. Start).</summary>
+    /// вычищает HardenDirectoryAcl, который вызывается сразу после (см. Start).
+    ///
+    /// ВЛАДЕЛЕЦ ПРОВЕРЯЕТСЯ У КАЖДОГО ФАЙЛА, и это не перестраховка. Родительский каталог
+    /// открыт «Пользователям» на запись (иначе первый запуск без прав администратора не создал
+    /// бы свой подкаталог), поэтому другой пользователь машины может заранее положить туда свой
+    /// linphonerc. Через него задаются provisioning_uri (скачивание конфигурации с сервера
+    /// атакующего), root_ca и каталог плагинов — то есть это захват настроек SIP с обычной
+    /// учётки. <see cref="EnsureOwnProfileDir"/> закрывает вариант «создать подкаталог с чужим
+    /// SID», но без этой проверки подложенный файл приезжал бы в наш свежесозданный профиль
+    /// сам, а HardenDirectoryAcl затем делал бы его нашим.</summary>
     private static void MigrateSharedProfile(string oldDir, string newDir)
     {
         try
         {
             foreach (string f in Directory.EnumerateFiles(oldDir))
             {
+                var owner = FileOwner(f);
+                // Владельца не прочитали — тоже не переносим: «не знаю, чей файл» в этом
+                // месте равнозначно «чужой». Цена ошибки несимметрична: неперенесённый файл
+                // стоит настроек прошлой версии, перенесённый чужой — контроля над SIP-аккаунтом.
+                if (owner == null || !IsSelfOrSystem(owner))
+                {
+                    _staticLog?.Invoke($"Миграция профиля: {Path.GetFileName(f)} создан другим "
+                                       + "пользователем — файл НЕ перенесён (возможна подмена конфигурации)");
+                    continue;
+                }
                 string dest = Path.Combine(newDir, Path.GetFileName(f));
                 try { if (!File.Exists(dest)) File.Move(f, dest); } catch { /* файл занят — пропустим */ }
             }
         }
         catch { }
+    }
+
+    /// <summary>Владелец файла (SID) либо null, если прочитать не удалось.</summary>
+    private static System.Security.Principal.SecurityIdentifier? FileOwner(string path)
+    {
+        try
+        {
+            return System.IO.FileSystemAclExtensions.GetAccessControl(new FileInfo(path))
+                .GetOwner(typeof(System.Security.Principal.SecurityIdentifier))
+                as System.Security.Principal.SecurityIdentifier;
+        }
+        catch { return null; }
     }
 
     /// <summary>Закрывает каталог профиля от других пользователей машины: полный доступ только
@@ -1493,17 +2355,30 @@ internal sealed partial class LinphoneCore : IDisposable
     /// Через него управляются provisioning_uri (скачивание конфигурации с сервера атакующего),
     /// root_ca и каталог плагинов — то есть это захват настроек SIP с обычной учётки.
     /// Поэтому: создаём сразу с нужным DACL, а у существующего каталога проверяем владельца.</summary>
-    private static void EnsureOwnProfileDir(string dir)
+    /// <returns>false — каталог занят ДРУГИМ пользователем машины; работать в нём нельзя,
+    /// вызывающий обязан уйти в <see cref="FallbackProfileDir"/>.</returns>
+    private static bool EnsureOwnProfileDir(string dir)
     {
         if (Directory.Exists(dir))
         {
             var owner = ProfileDirOwner(dir);
+            // Читать чужой каталог нельзя: там может лежать подложенный linphonerc с чужим
+            // provisioning_uri и root_ca, то есть захват настроек SIP с обычной учётки.
+            //
+            // Но и ОТКАЗЫВАТЬ В ЗАПУСКЕ нельзя, а раньше делалось именно это. Родительский
+            // каталог открыт «Пользователям» на запись (иначе первый запуск без прав
+            // администратора не создал бы свой подкаталог), поэтому любой сотрудник
+            // терминального сервера мог заранее создать каталог с ЧУЖИМ SID и навсегда лишить
+            // коллегу телефона: отбитая атака «подмена конфигурации» превращалась в проходящую
+            // «телефон не запускается», снимаемую только руками администратора на каждой машине.
+            // Уходим в заведомо свой каталог — защита сохраняется целиком, побочный эффект уходит.
             if (owner != null && !IsSelfOrSystem(owner))
-                throw new InvalidOperationException(
-                    $"Каталог профиля {dir} создан другим пользователем ({owner.Value}). " +
-                    "Это может быть подменённая конфигурация — запуск остановлен. " +
-                    "Удалите каталог силами администратора и запустите приложение снова.");
-            return;
+            {
+                _staticLog?.Invoke($"ВНИМАНИЕ: каталог профиля {dir} создан другим пользователем "
+                    + $"({owner.Value}) — возможна подмена конфигурации. Работаю в личном каталоге.");
+                return false;
+            }
+            return true;
         }
         try { new DirectoryInfo(dir).Create(ProfileDirSecurity()); }   // атомарно: без окна с чужим DACL
         catch (Exception ex)
@@ -1511,7 +2386,15 @@ internal sealed partial class LinphoneCore : IDisposable
             _staticLog?.Invoke($"Каталог профиля создан без явного DACL: {ex.Message}");
             Directory.CreateDirectory(dir);
         }
+        return true;
     }
+
+    /// <summary>Запасной каталог профиля, когда основной занят другим пользователем машины.
+    /// LOCALAPPDATA принадлежит пользователю, и подложить туда конфигурацию посторонний не
+    /// может. К ASCII приводит ВЫЗЫВАЮЩИЙ — уже после создания каталога (см. Start).</summary>
+    private static string FallbackProfileDir => Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+        "LinphoneWinUI", "profile");
 
     private static System.Security.Principal.SecurityIdentifier? ProfileDirOwner(string dir)
     {
@@ -1546,7 +2429,12 @@ internal sealed partial class LinphoneCore : IDisposable
     /// <summary>Логи ядра пишутся с уровнем Message, то есть SIP-сообщения целиком: кто кому
     /// звонил и когда. liblinphone ротирует по размеру, но число файлов не ограничивает — на
     /// рабочем профиле накопилось 74 МБ незамаскированных трасс. Оставляем только текущий и один
-    /// предыдущий: диагностика «что было в прошлый запуск» сохраняется, архив за месяц — нет.</summary>
+    /// предыдущий: диагностика «что было в прошлый запуск» сохраняется, архив за месяц — нет.
+    ///
+    /// Зовётся при старте И ПЕРИОДИЧЕСКИ (см. PruneLogsPeriodically). Одного вызова при старте
+    /// НЕ ХВАТАЕТ, и это видно на живой машине: софтфон работает сутками, ротация происходит
+    /// ВНУТРИ сессии, и к следующему запуску там лежало четыре файла вместо двух — 13 МБ
+    /// трасс с шестью тысячами заголовков From/To. Ровно этот архив и уезжает в поддержку.</summary>
     private static void PruneCoreLogs(string dir)
     {
         try
@@ -1555,6 +2443,17 @@ internal sealed partial class LinphoneCore : IDisposable
                 if (f.Name != "liblinphone.log_1") { try { f.Delete(); } catch { } }
         }
         catch { }
+    }
+
+    // Проверяем раз в ~5 минут: 50 тиков насоса в секунду × 300 с. Обращение к файловой
+    // системе редкое и дешёвое (перечисление двух-четырёх имён), зато архив трасс перестаёт
+    // расти без ограничений в долгих сессиях.
+    private const int PruneLogsEveryTicks = 15000;
+
+    private void PruneLogsPeriodically(int tick)
+    {
+        if (tick % PruneLogsEveryTicks != 0 || ProfileDir.Length == 0) return;
+        PruneCoreLogs(ProfileDir);
     }
 
     private static System.Security.AccessControl.DirectorySecurity ProfileDirSecurity()
@@ -1648,14 +2547,9 @@ internal sealed partial class LinphoneCore : IDisposable
     {
         if (_core != IntPtr.Zero)
         {
-            // Финализируем запись разговора ДО остановки core, пока медиа живо —
-            // иначе MKV останется без индекса и не откроется.
-            if (_recording)
-            {
-                IntPtr call = CurrentCall;
-                if (call != IntPtr.Zero) { try { linphone_call_stop_recording(call); } catch { } }
-                _recording = false;
-            }
+            // Финализируем запись ДО остановки core, пока медиа живо — иначе MKV останется
+            // без индекса и не откроется. Все линии: в конференции их несколько.
+            StopAllRecording();
             StopMicRecording();          // не бросаем recorder проверки микрофона
             ReleaseHeldPayloadTypes();   // обёртки кодеков, удерживаемые для UI
             linphone_core_stop(_core);

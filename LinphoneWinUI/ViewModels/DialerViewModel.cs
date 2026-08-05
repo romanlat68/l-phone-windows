@@ -14,16 +14,30 @@ public partial class DialerViewModel : ObservableObject
     private readonly ISipService _sip;
     private readonly Func<string, string?> _matchName;   // имя контакта по номеру (FindContact)
 
-    [ObservableProperty] private string _number = "";
-    [ObservableProperty] private string _matchedName = "";
-    [ObservableProperty] private bool _hasNumber;
+    [ObservableProperty] public partial string Number { get; set; } = "";
+    [ObservableProperty] public partial string MatchedName { get; set; } = "";
+    [ObservableProperty] public partial bool HasNumber { get; set; }
     /// <summary>Последний набранный (полный адрес). Ведёт View: ставит при старте из журнала
     /// и на каждом исходящем — поэтому кнопке повтора не нужен поход в ядро на клик.</summary>
-    [ObservableProperty] private string _lastDialed = "";
+    [ObservableProperty] public partial string LastDialed { get; set; } = "";
 
-    /// <summary>Есть что повторять. Нечего — View прячет кнопку (как в Android-клиенте),
-    /// иначе клик по ней был бы молчаливым «ничего не произошло».</summary>
+    /// <summary>Есть что повторять. Нечего — View прячет строку, иначе клик по ней был бы
+    /// молчаливым «ничего не произошло».</summary>
     public bool HasLastDialed => LastDialed.Length > 0;
+
+    /// <summary>Последний набранный — как показать человеку. Имя из адресной книги, иначе
+    /// чистый номер: полный SIP-адрес («"Roman" &lt;sip:378@sip.example.com&gt;») в строке над
+    /// кнопкой вызова не помещается и ничего не сообщает.</summary>
+    public string LastDialedDisplay
+    {
+        get
+        {
+            if (LastDialed.Length == 0) return "";
+            if (_matchName(LastDialed) is { Length: > 0 } name) return name;
+            string user = PhoneNumberUtils.SipUser(LastDialed);
+            return user.Length > 0 ? user : PhoneNumberUtils.Pretty(LastDialed);
+        }
+    }
 
     public DialerViewModel(ISipService sip, Func<string, string?> matchName)
     {
@@ -37,7 +51,11 @@ public partial class DialerViewModel : ObservableObject
         MatchedName = _matchName(value) ?? "";
     }
 
-    partial void OnLastDialedChanged(string value) => OnPropertyChanged(nameof(HasLastDialed));
+    partial void OnLastDialedChanged(string value)
+    {
+        OnPropertyChanged(nameof(HasLastDialed));
+        OnPropertyChanged(nameof(LastDialedDisplay));
+    }
 
     public void AppendDigit(string digit) => Number += digit;
     public void Backspace() { if (Number.Length > 0) Number = Number[..^1]; }

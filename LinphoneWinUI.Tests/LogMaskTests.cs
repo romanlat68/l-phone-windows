@@ -2,7 +2,7 @@ using Xunit;
 
 namespace LinphoneWinUI.Tests;
 
-/// <summary>Маскировка ПД в app.log (MainWindow.MaskNumbers): длинные (внешние) номера
+/// <summary>Маскировка ПД в app.log (AppLog.Mask): длинные (внешние) номера
 /// прячутся в середине, короткие внутренние (3–6 цифр) остаются как есть.</summary>
 public class LogMaskTests
 {
@@ -14,5 +14,5 @@ public class LogMaskTests
     [InlineData("с 74951234567 на 78122223344", "с 7495*****67 на 7812*****44")] // оба номера
     [InlineData("без номеров", "без номеров")]
     public void MaskNumbers_HidesLongNumbersOnly(string input, string expected) =>
-        Assert.Equal(expected, MainWindow.MaskNumbers(input));
+        Assert.Equal(expected, AppLog.Mask(input));
 }

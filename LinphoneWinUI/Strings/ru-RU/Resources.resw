@@ -46,7 +46,7 @@
   <data name="TrayExit.Text" xml:space="preserve"><value>Выйти</value></data>
 
   <data name="NavAccount.Content" xml:space="preserve"><value>Аккаунты</value></data>
-  <data name="NavDevices.Content" xml:space="preserve"><value>Звонки и устройства</value></data>
+  <data name="NavDevices.Content" xml:space="preserve"><value>Звук и видео</value></data>
   <data name="NavContacts.Content" xml:space="preserve"><value>Контакты</value></data>
   <data name="NavCodecs.Content" xml:space="preserve"><value>Кодеки и шифрование</value></data>
   <data name="NavAdvanced.Content" xml:space="preserve"><value>Дополнительно</value></data>
@@ -66,7 +66,7 @@
   <data name="BoxExpires.Header" xml:space="preserve"><value>Таймаут регистрации (сек)</value></data>
   <data name="BtnDeleteAccount.Content" xml:space="preserve"><value>Удалить аккаунт</value></data>
 
-  <data name="TitleDevices.Text" xml:space="preserve"><value>Звонки и устройства</value></data>
+  <data name="TitleDevices.Text" xml:space="preserve"><value>Звук и видео</value></data>
   <data name="SwEcho.Header" xml:space="preserve"><value>Эхоподавитель</value></data>
   <data name="ComboDtmf.Header" xml:space="preserve"><value>Способ передачи DTMF</value></data>
   <data name="ComboMic.Header" xml:space="preserve"><value>Микрофон</value></data>
@@ -92,7 +92,7 @@
   <data name="LblPhonebookDesc.Text" xml:space="preserve"><value>Внешняя адресная книга загружается по HTTP (XML вида PhoneBook → DirectoryEntry).</value></data>
   <data name="BoxPhonebookUrl.Header" xml:space="preserve"><value>URL адресной книги</value></data>
   <data name="BoxPhonebookUser.Header" xml:space="preserve"><value>Логин (необязательно)</value></data>
-  <data name="BoxPhonebookPass.Header" xml:space="preserve"><value>Пароль (пусто — оставить прежний)</value></data>
+  <data name="BoxPhonebookPass.Header" xml:space="preserve"><value>Пароль</value></data>
 
   <data name="TitleCodecs.Text" xml:space="preserve"><value>Кодеки и шифрование</value></data>
   <data name="ComboEncryption.Header" xml:space="preserve"><value>Шифрование медиа</value></data>
@@ -138,6 +138,9 @@
   <data name="St_TlsCaMissing" xml:space="preserve"><value>Выбранного файла сертификата больше нет — доверие оставлено прежним.</value></data>
   <data name="LblProvisioning.Text" xml:space="preserve"><value>Удалённое конфигурирование</value></data>
   <data name="LblUpdates.Text" xml:space="preserve"><value>Обновления</value></data>
+  <data name="LblOperator.Text" xml:space="preserve"><value>Работа поверх других окон</value></data>
+  <data name="SwHotkeys.Header" xml:space="preserve"><value>Глобальные горячие клавиши</value></data>
+  <data name="SwMiniWindow.Header" xml:space="preserve"><value>Мини-окно звонка поверх всех окон</value></data>
   <data name="SwUpdateCheck.Header" xml:space="preserve"><value>Проверять обновления при запуске</value></data>
   <data name="BtnCheckUpdate.Content" xml:space="preserve"><value>Проверить сейчас</value></data>
   <data name="St_UpdateTitle" xml:space="preserve"><value>Доступна версия {0}</value></data>
@@ -167,6 +170,8 @@
 
   <data name="St_NotConnected" xml:space="preserve"><value>Не подключён</value></data>
   <data name="St_Registering" xml:space="preserve"><value>Регистрация…</value></data>
+  <data name="St_CoreStarting" xml:space="preserve"><value>Запуск телефона…</value></data>
+  <data name="St_CoreFailed" xml:space="preserve"><value>Телефон не запустился</value></data>
   <data name="St_Online" xml:space="preserve"><value>В сети</value></data>
   <data name="St_Offline" xml:space="preserve"><value>Не в сети</value></data>
   <data name="St_Missed" xml:space="preserve"><value>Пропущенный</value></data>
@@ -187,6 +192,7 @@
   <data name="St_Cancel" xml:space="preserve"><value>Отмена</value></data>
   <data name="St_NumberOrSip" xml:space="preserve"><value>Номер или SIP-адрес</value></data>
   <data name="St_RingtoneDefault" xml:space="preserve"><value>(по умолчанию)</value></data>
+  <data name="St_RingtoneCustom" xml:space="preserve"><value>{0} (свой)</value></data>
   <data name="St_RingtoneStop" xml:space="preserve"><value>Остановить</value></data>
   <data name="St_RingtoneNotFound" xml:space="preserve"><value>Файл рингтона не найден</value></data>
   <data name="LblDeviceCheck.Text" xml:space="preserve"><value>Проверка устройств</value></data>
@@ -209,6 +215,8 @@
   <data name="St_LoadFailed" xml:space="preserve"><value>Не удалось загрузить: {0}</value></data>
   <data name="St_LangNote" xml:space="preserve"><value>Язык изменится после перезапуска приложения.</value></data>
   <data name="St_NetApplied" xml:space="preserve"><value>Сетевые настройки применены.</value></data>
+  <data name="St_TurnPassSaved" xml:space="preserve"><value>Пароль сохранён. Чтобы заменить — щёлкните поле и введите новый.</value></data>
+  <data name="St_TurnPassMissing" xml:space="preserve"><value>Пароль не задан — TURN не заработает, пока вы его не введёте.</value></data>
   <data name="St_NetApplyFailed" xml:space="preserve"><value>Не удалось применить сетевые настройки — SIP-ядро недоступно.</value></data>
   <data name="St_UrlCleared" xml:space="preserve"><value>URL очищен.</value></data>
   <data name="St_SavedRestart" xml:space="preserve"><value>Сохранено. Применится после перезапуска.</value></data>
@@ -224,7 +232,7 @@
   <data name="St_ReasonForbidden" xml:space="preserve"><value>Вызов запрещён</value></data>
   <data name="SwTurn.Header" xml:space="preserve"><value>Использовать TURN (релей через STUN-сервер)</value></data>
   <data name="BoxTurnUser.Header" xml:space="preserve"><value>Логин TURN</value></data>
-  <data name="BoxTurnPass.Header" xml:space="preserve"><value>Пароль TURN (пусто — не менять)</value></data>
+  <data name="BoxTurnPass.Header" xml:space="preserve"><value>Пароль TURN</value></data>
   <data name="BoxTurnRealm.Header" xml:space="preserve"><value>Realm TURN (как на сервере)</value></data>
   <data name="St_CallAction" xml:space="preserve"><value>Позвонить</value></data>
   <data name="St_LastDialed" xml:space="preserve"><value>Повтор последнего</value></data>
@@ -263,4 +271,115 @@
   <data name="St_Conference" xml:space="preserve"><value>Конференция</value></data>
   <data name="SwAutoRecord.Header" xml:space="preserve"><value>Автоматически записывать все разговоры</value></data>
   <data name="SwClickToCall.Header" xml:space="preserve"><value>Открывать ссылки tel: и sip: (click-to-call)</value></data>
+  <data name="St_AlreadyRunningTitle" xml:space="preserve"><value>L-Phone уже запущен</value></data>
+  <data name="St_AlreadyRunningText" xml:space="preserve"><value>L-Phone уже запущен в другом сеансе Windows этого пользователя.&#10;&#10;Два экземпляра работают с одним профилем и мешают друг другу: перетирают настройки и дважды регистрируются на АТС. Завершите L-Phone в том сеансе и запустите снова.</value></data>
+  <data name="St_EnterNumber" xml:space="preserve"><value>Введите номер</value></data>
+  <data name="St_EncSrtp" xml:space="preserve"><value>Разговор зашифрован ({0})</value></data>
+  <data name="St_EncSrtpWeak" xml:space="preserve"><value>Разговор зашифрован (SRTP), но ключ шифрования передан по НЕзащищённой сигнализации: аккаунт работает без TLS, и перехватить разговор может любой, кто видит сетевой трафик. Включите транспорт TLS в настройках аккаунта.</value></data>
+  <data name="St_EncWas" xml:space="preserve"><value>Разговор был зашифрован ({0})</value></data>
+  <data name="St_EncZrtpNote" xml:space="preserve"><value>Контрольная фраза не сверена — кто был на линии, это не подтверждает.</value></data>
+  <data name="St_EncZrtpUnverified" xml:space="preserve"><value>Разговор зашифрован (ZRTP). Контрольная фраза не сверена — от подмены собеседника это не защищает.</value></data>
+  <data name="MenuDnd.Text" xml:space="preserve"><value>Не беспокоить</value></data>
+  <data name="St_On" xml:space="preserve"><value>Вкл.</value></data>
+  <data name="St_Off" xml:space="preserve"><value>Выкл.</value></data>
+  <data name="St_RecordFailed" xml:space="preserve"><value>Не удалось начать запись</value></data>
+  <data name="SwIntercom.Header" xml:space="preserve"><value>Отвечать по команде АТС (интерком, оповещение)</value></data>
+  <data name="HkAnswer.Text" xml:space="preserve"><value>Ответить на звонок</value></data>
+  <data name="HkHangup.Text" xml:space="preserve"><value>Сбросить звонок</value></data>
+  <data name="HkMute.Text" xml:space="preserve"><value>Выключить микрофон</value></data>
+  <data name="HkClear.Content" xml:space="preserve"><value>Убрать</value></data>
+  <data name="Hk_NotSet" xml:space="preserve"><value>не назначено</value></data>
+  <data name="Hk_PressCombo" xml:space="preserve"><value>нажмите сочетание…</value></data>
+  <data name="Hk_CaptureHint" xml:space="preserve"><value>Нажмите сочетание с Ctrl, Alt или Shift. Щёлкните мимо, чтобы отменить.</value></data>
+  <data name="Hk_NeedModifier" xml:space="preserve"><value>Нужен модификатор: Ctrl, Alt или Shift. Одиночная клавиша перестала бы работать во всех программах.</value></data>
+  <data name="Hk_Taken" xml:space="preserve"><value>Сочетание {0} занято другой программой — выберите другое.</value></data>
+  <data name="Hk_Duplicate" xml:space="preserve"><value>Сочетание {0} уже назначено на «{1}».</value></data>
+  <data name="Hk_Applied" xml:space="preserve"><value>Сочетание применено.</value></data>
+  <data name="Hk_TakenList" xml:space="preserve"><value>Не удалось занять: {0} — сочетание держит другая программа.</value></data>
+  <data name="HistorySearch.PlaceholderText" xml:space="preserve"><value>Поиск по имени или номеру</value></data>
+  <data name="HfAll.Text" xml:space="preserve"><value>Все</value></data>
+  <data name="HfMissed.Text" xml:space="preserve"><value>Пропущенные</value></data>
+  <data name="HfIn.Text" xml:space="preserve"><value>Входящие</value></data>
+  <data name="HfOut.Text" xml:space="preserve"><value>Исходящие</value></data>
+  <data name="HistoryNoMatchText.Text" xml:space="preserve"><value>Ничего не найдено</value></data>
+  <data name="LblConnect.Text" xml:space="preserve"><value>Соединить</value></data>
+  <data name="LblTransferWhom.Text" xml:space="preserve"><value>Перевести звонок</value></data>
+  <data name="TransferInput.PlaceholderText" xml:space="preserve"><value>Номер или имя</value></data>
+  <data name="BtnTransferDo.Content" xml:space="preserve"><value>Перевести</value></data>
+  <data name="BtnTransferAsk.Content" xml:space="preserve"><value>Спросить</value></data>
+  <data name="St_TransferWhom" xml:space="preserve"><value>Перевести: {0}</value></data>
+  <data name="BtnCancel.Content" xml:space="preserve"><value>Отмена</value></data>
+  <data name="St_Yesterday" xml:space="preserve"><value>Вчера</value></data>
+  <data name="LblPark.Text" xml:space="preserve"><value>Парковка</value></data>
+  <data name="LblParking.Text" xml:space="preserve"><value>На парковке</value></data>
+  <data name="Park_Free" xml:space="preserve"><value>Свободен</value></data>
+  <data name="Park_Busy" xml:space="preserve"><value>Занят</value></data>
+  <data name="St_ParkFailed" xml:space="preserve"><value>Не удалось припарковать звонок</value></data>
+  <data name="LblParkExt.Text" xml:space="preserve"><value>Номер парковки</value></data>
+  <data name="LblParkSlots.Text" xml:space="preserve"><value>Слоты парковки</value></data>
+  <data name="SwParking.Header" xml:space="preserve"><value>Показывать парковку</value></data>
+  <data name="LblParkingGroup.Text" xml:space="preserve"><value>Парковка звонков</value></data>
+  <data name="St_ParkSlotsOk" xml:space="preserve"><value>Слотов: {0} ({1}…{2})</value></data>
+  <data name="St_ParkSlotsBad" xml:space="preserve"><value>Диапазон не разобран — парковка не показывается</value></data>
+  <data name="St_ParkDone" xml:space="preserve"><value>Звонок припаркован</value></data>
+  <data name="Q_Loss" xml:space="preserve"><value>Потери</value></data>
+  <data name="Q_Rtt" xml:space="preserve"><value>Задержка</value></data>
+  <data name="Q_Jitter" xml:space="preserve"><value>Джиттер</value></data>
+  <data name="Q_Rating" xml:space="preserve"><value>Оценка</value></data>
+  <data name="Q_Ms" xml:space="preserve"><value>мс</value></data>
+  <data name="LblQuality.Text" xml:space="preserve"><value>Качество связи</value></data>
+  <data name="St_DragTransfer" xml:space="preserve"><value>Перевести на {0}</value></data>
+  <data name="St_DragAsk" xml:space="preserve"><value>Спросить {0}</value></data>
+  <data name="LblApiGroup.Text" xml:space="preserve"><value>Интеграция с CRM</value></data>
+  <data name="SwApi.Header" xml:space="preserve"><value>Локальный HTTP-API (127.0.0.1)</value></data>
+  <data name="LblApiPort.Text" xml:space="preserve"><value>Порт</value></data>
+  <data name="LblApiToken.Text" xml:space="preserve"><value>Токен</value></data>
+  <data name="BtnApiNewToken.Content" xml:space="preserve"><value>Обновить</value></data>
+  <data name="BtnApiCopy.Content" xml:space="preserve"><value>Скопировать пример</value></data>
+  <data name="St_ApiCopied" xml:space="preserve"><value>Ссылка скопирована в буфер обмена</value></data>
+  <data name="St_ApiOff" xml:space="preserve"><value>Выключен. Включите, чтобы CRM могла звонить с этого телефона.</value></data>
+  <data name="LblCallHook.Text" xml:space="preserve"><value>Ссылка на карточку клиента</value></data>
+  <data name="LblCallHookHint.Text" xml:space="preserve"><value>Подстановки: {number} {name} {event} {direction} {duration} {callid}</value></data>
+  <data name="SwCallHookBrowser.Header" xml:space="preserve"><value>Открывать в браузере (иначе тихий запрос)</value></data>
+  <data name="SwCallHookIncoming.Header" xml:space="preserve"><value>Только на входящие</value></data>
+  <data name="St_HookBadUrl" xml:space="preserve"><value>Открыть можно только http:// или https://</value></data>
+  <data name="St_AudioDeviceSwitched" xml:space="preserve"><value>Звуковое устройство изменилось — переключились</value></data>
+  <data name="Num_Work" xml:space="preserve"><value>Рабочий</value></data>
+  <data name="Num_Mobile" xml:space="preserve"><value>Мобильный</value></data>
+  <data name="Num_Home" xml:space="preserve"><value>Домашний</value></data>
+  <data name="Num_Ext" xml:space="preserve"><value>Добавочный</value></data>
+  <data name="Num_Other" xml:space="preserve"><value>Другой</value></data>
+  <data name="Grp_All" xml:space="preserve"><value>Все группы</value></data>
+  <data name="Num_Numbered" xml:space="preserve"><value>Номер {0}</value></data>
+  <data name="LblTransferConfirm.Text" xml:space="preserve"><value>Перевести звонок?</value></data>
+  <data name="LblWhom.Text" xml:space="preserve"><value>Кого:</value></data>
+  <data name="LblToWhom.Text" xml:space="preserve"><value>Кому:</value></data>
+  <data name="BtnNo.Content" xml:space="preserve"><value>Нет</value></data>
+  <data name="LblAttendedHint.Text" xml:space="preserve"><value>Поговорите и нажмите «Соединить». Красная кнопка вернёт звонок вам.</value></data>
+  <data name="BtnTransferDo.Text" xml:space="preserve"><value>Перевести</value></data>
+  <data name="BtnTransferAsk.Text" xml:space="preserve"><value>С консультацией</value></data>
+  <data name="LblBackToMe.Text" xml:space="preserve"><value>Вернуть себе</value></data>
+  <data name="Xfer_Favorites" xml:space="preserve"><value>Избранные</value></data>
+  <data name="Xfer_Found" xml:space="preserve"><value>Найдено в книге</value></data>
+  <data name="NavCalls.Content" xml:space="preserve"><value>Звонки</value></data>
+  <data name="NavIntegrations.Content" xml:space="preserve"><value>Интеграции</value></data>
+  <data name="NavNetwork.Content" xml:space="preserve"><value>Сеть</value></data>
+  <data name="NavApp.Content" xml:space="preserve"><value>Приложение</value></data>
+  <data name="TitleCalls.Text" xml:space="preserve"><value>Звонки</value></data>
+  <data name="TitleIntegrations.Text" xml:space="preserve"><value>Интеграции</value></data>
+  <data name="TitleNetwork.Text" xml:space="preserve"><value>Сеть</value></data>
+  <data name="TitleApp.Text" xml:space="preserve"><value>Приложение</value></data>
+  <data name="LblIncomingGroup.Text" xml:space="preserve"><value>Входящие</value></data>
+  <data name="LblRecordGroup.Text" xml:space="preserve"><value>Запись разговоров</value></data>
+  <data name="LblWindowGroup.Text" xml:space="preserve"><value>Окно и запуск</value></data>
+  <data name="BtnCheckBook.Content" xml:space="preserve"><value>Проверить</value></data>
+  <data name="St_RedialGaveUp" xml:space="preserve"><value>Номер занят — автодозвон прекращён</value></data>
+  <data name="St_CoreBusy" xml:space="preserve"><value>Телефон не отвечает — состояние неизвестно</value></data>
+  <data name="St_ConferenceFailed" xml:space="preserve"><value>Не удалось создать конференцию</value></data>
+  <data name="St_MissedCall" xml:space="preserve"><value>Пропущенный звонок</value></data>
+  <data name="St_CallBack" xml:space="preserve"><value>Перезвонить</value></data>
+  <data name="St_LineRinging" xml:space="preserve"><value>линия звонит</value></data>
+  <data name="SwAwayOnLock.Header" xml:space="preserve"><value>Статус «Отошёл» при блокировке компьютера</value></data>
+  <data name="SwMissedToast.Header" xml:space="preserve"><value>Уведомлять о пропущенных звонках</value></data>
+  <data name="St_UnknownCaller" xml:space="preserve"><value>Скрытый номер</value></data>
 </root>

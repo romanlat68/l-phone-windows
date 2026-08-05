@@ -58,8 +58,19 @@ public static class Program
         // файла — межсессионная и никаких привилегий не требует. Держим её всё время жизни процесса.
         if (first && !TryLockProfile())
         {
+            // Профиль занят ДРУГИМ сеансом того же пользователя (RDP + консоль на терминальном
+            // сервере). Просто выйти нельзя: сигнал «покажи окно» уходит в СВОЮ сессию, где
+            // слушателя нет по определению — владелец профиля в другой. Пользователь щёлкал по
+            // ярлыку и не получал ничего: ни окна, ни сообщения, ни строки в логе (он ещё не поднят).
             ShowSignal.Set();   // вдруг живой экземпляр всё же в этой сессии — пусть развернётся
-            return;             // иначе просто выходим: портить чужой конфиг нельзя
+            ShowStartupError(
+                Localized("St_AlreadyRunningTitle", "L-Phone"),
+                Localized("St_AlreadyRunningText",
+                    "L-Phone уже запущен в другом сеансе Windows этого пользователя.\n\n" +
+                    "Два экземпляра работают с одним профилем и мешают друг другу: перетирают " +
+                    "настройки и дважды регистрируются на АТС. Завершите L-Phone в том сеансе " +
+                    "и запустите снова."));
+            return;             // портить чужой конфиг нельзя
         }
         if (!first)
         {
@@ -90,6 +101,33 @@ public static class Program
         });
         GC.KeepAlive(_singleMutex);
         GC.KeepAlive(_profileLock);
+    }
+
+    /// <summary>Сообщение об отказе старта — ДО создания XAML-приложения, поэтому окном ОС,
+    /// а не ContentDialog. Молчаливый выход недопустим: с точки зрения пользователя ярлык
+    /// просто не работает.</summary>
+    private static void ShowStartupError(string title, string text)
+    {
+        try { MessageBoxW(IntPtr.Zero, text, title, MB_OK | MB_ICONWARNING | MB_SETFOREGROUND); }
+        catch { }
+    }
+
+    private const uint MB_OK = 0x0, MB_ICONWARNING = 0x30, MB_SETFOREGROUND = 0x10000;
+
+    [System.Runtime.InteropServices.DllImport("user32.dll", CharSet = System.Runtime.InteropServices.CharSet.Unicode)]
+    private static extern int MessageBoxW(IntPtr hWnd, string text, string caption, uint type);
+
+    /// <summary>Строка из ресурсов; при любой осечке (ресурсы ещё не подняты, ключа нет) —
+    /// запасной текст. Loc.S на промахе возвращает САМ КЛЮЧ, и показать пользователю
+    /// «St_AlreadyRunningText» было бы хуже, чем показать русский текст.</summary>
+    private static string Localized(string key, string fallback)
+    {
+        try
+        {
+            string s = Loc.S(key);
+            return string.IsNullOrEmpty(s) || s == key ? fallback : s;
+        }
+        catch { return fallback; }
     }
 
     private static FileStream? _profileLock;   // держим до конца процесса — освобождает ОС

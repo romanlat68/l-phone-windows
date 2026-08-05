@@ -1,6 +1,9 @@
 name: CI
 
-# 114 тестов не запускались автоматически ни разу — этот файл и есть весь CI.
+# Робот на чистой машине пересобирает проект и гоняет тесты при каждом изменении.
+# Ловит «у меня работает»: забытый в репозитории файл, случайно подтянутую зависимость,
+# сборку, которая живёт только на моей машине со старым содержимым bin.
+#
 # Сборка WinUI требует Windows-раннера; конфигурация та же, что и локально (x64).
 on:
   push:
@@ -46,5 +49,84 @@ jobs:
       - name: Build
         run: dotnet build LinphoneWinUI.sln -c Release -p:Platform=x64 --no-restore
 
+      # Интеграционные тесты сюда не входят: им нужна живая АТС, а её у раннера нет.
+      # Гоняются вручную с рабочей машины.
       - name: Test
-        run: dotnet test LinphoneWinUI.Tests/LinphoneWinUI.Tests.csproj -c Release -p:Platform=x64 --no-build --verbosity normal
+        run: >
+          dotnet test LinphoneWinUI.Tests/LinphoneWinUI.Tests.csproj
+          -c Release -p:Platform=x64 --no-build --verbosity normal
+          --collect:"XPlat Code Coverage" --settings coverlet.runsettings
+          --results-directory TestResults
+
+      # Покрытие считаем по ТЕСТИРУЕМОМУ коду (см. coverlet.runsettings): разметка окон и
+      # обёртки над liblinphone исключены, иначе цифра говорит только о том, какая доля
+      # проекта — интероп. По всему проекту выходит 7 %, по логике — около 50 %.
+      - name: Покрытие
+        shell: pwsh
+        run: |
+          $file = Get-ChildItem TestResults -Recurse -Filter coverage.cobertura.xml |
+                  Select-Object -First 1
+          if (-not $file) { Write-Host "::warning::отчёт о покрытии не найден"; exit 0 }
+
+          [xml]$x = Get-Content $file.FullName
+          $lines = [math]::Round([double]$x.coverage.'line-rate' * 100, 1)
+          $branches = [math]::Round([double]$x.coverage.'branch-rate' * 100, 1)
+
+          # Худшие файлы — чтобы в отчёте сразу было видно, где логика не проверяется вовсе.
+          $worst = $x.coverage.packages.package.classes.class |
+            Select-Object @{n='f';e={ Split-Path $_.filename -Leaf }},
+                          @{n='r';e={ [double]$_.'line-rate' * 100 }},
+                          @{n='n';e={ @($_.lines.line).Count }} |
+            Group-Object f | ForEach-Object {
+              [pscustomobject]@{
+                Файл = $_.Name
+                Покрытие = [math]::Round((($_.Group | Measure-Object r -Average).Average))
+                Строк = ($_.Group | Measure-Object n -Sum).Sum
+              }
+            } | Where-Object { $_.Строк -gt 25 } | Sort-Object Покрытие | Select-Object -First 10
+
+          "## Покрытие логики" | Out-File $env:GITHUB_STEP_SUMMARY -Append
+          "Строки: **$lines %**, ветвления: **$branches %**" | Out-File $env:GITHUB_STEP_SUMMARY -Append
+          "" | Out-File $env:GITHUB_STEP_SUMMARY -Append
+          "### Меньше всего проверено" | Out-File $env:GITHUB_STEP_SUMMARY -Append
+          ($worst | ForEach-Object { "- ``$($_.Файл)`` — $($_.Покрытие) % ($($_.Строк) строк)" }) |
+            Out-File $env:GITHUB_STEP_SUMMARY -Append
+
+          Write-Host "покрытие логики: строки $lines %, ветвления $branches %"
+
+          # Порог держим ниже достигнутого с запасом. Смысл не в самой цифре, а в сигнале:
+          # если новая функция приехала без единого теста, покрытие просядет и сборка
+          # покраснеет — раньше, чем это заметят на рабочем месте.
+          $threshold = 45
+          if ($lines -lt $threshold) {
+            Write-Host "::error::покрытие $lines % ниже порога $threshold %"
+            exit 1
+          }
+
+      - name: Отчёт о покрытии
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage
+          path: TestResults/**/coverage.cobertura.xml
+          retention-days: 14
+
+      # Готовая сборка для проверки. НЕ подписана: ключ подписи на CI не выкладывается,
+      # поэтому артефакт годится посмотреть и проверить поведение, но не для раздачи
+      # операторам — установщик по-прежнему собирается и подписывается локально.
+      # Самодостаточная сборка весит 425 МБ, поэтому собираем её не на каждый чих:
+      # на PR достаточно тестов, а готовый клиент нужен на main и по кнопке.
+      - name: Собрать клиент
+        if: github.event_name != 'pull_request'
+        run: >
+          dotnet publish LinphoneWinUI/LinphoneWinUI.csproj
+          -c Release -p:Platform=x64 -r win-x64 --self-contained true
+          -o publish
+
+      - name: Сборка (без подписи)
+        if: github.event_name != 'pull_request'
+        uses: actions/upload-artifact@v4
+        with:
+          name: L-Phone-unsigned-${{ github.sha }}
+          path: publish
+          retention-days: 14

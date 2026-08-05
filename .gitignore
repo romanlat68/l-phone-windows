@@ -28,3 +28,7 @@ desktop.ini
 
 # ВАЖНО: LinphoneWinUI/native/ НЕ игнорируется — это вендорные нативные DLL liblinphone,
 # необходимые для P/Invoke и сборки проекта.
+
+# Результаты прогонов с покрытием и публикация — не в репозиторий
+TestResults/
+publish/

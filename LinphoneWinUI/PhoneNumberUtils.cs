@@ -116,4 +116,29 @@ internal static class PhoneNumberUtils
             return (cut >= 0 ? h[..cut] : h).Trim();
         }
     }
+
+    /// <summary>
+    /// Можно ли на этот адрес перезвонить.
+    ///
+    /// Скрытый номер приходит НЕ пустым, и это ловушка: RFC 3323 предписывает
+    /// «Anonymous» &lt;sip:anonymous@anonymous.invalid&gt;, и наивная проверка «строка не пуста»
+    /// принимает его за номер. Проверено живым звонком: originate без caller ID дал ровно
+    /// такой адрес, а уведомление о пропущенном предлагало «Перезвонить» на «anonymous».
+    /// Кнопка, которая заведомо не сработает, хуже отсутствующей кнопки.
+    ///
+    /// Заодно отсекаем служебные значения, которыми АТС обозначают «номер не определён».
+    /// </summary>
+    public static bool IsCallable(string? address)
+    {
+        string user = SipUser(address);
+        if (user.Length == 0) return false;
+        if (user is "anonymous" or "unknown" or "unavailable" or "restricted" or "private"
+            or "n/a" or "-" ) return false;
+        // Домен .invalid зарезервирован именно под «этого адреса не существует» (RFC 2606).
+        string a = (address ?? "").ToLowerInvariant();
+        if (a.Contains("anonymous.invalid") || a.Contains("@invalid")) return false;
+        // Хоть одна цифра или явный feature-код: имя без цифр набрать можно (sip:reception),
+        // но «anonymous»-подобные значения выше уже отсеяны.
+        return true;
+    }
 }

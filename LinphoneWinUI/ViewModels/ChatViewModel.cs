@@ -39,9 +39,9 @@ public partial class ChatViewModel : ObservableObject
     public ObservableCollection<ConversationRow> Conversations { get; } = new();
     public ObservableCollection<ChatLine> Messages { get; } = new();
 
-    [ObservableProperty] private bool _isListView = true;         // список переписок vs открытая переписка
-    [ObservableProperty] private bool _conversationsEmpty = true;
-    [ObservableProperty] private string _chatHeader = "";
+    [ObservableProperty] public partial bool IsListView { get; set; } = true;         // список переписок vs открытая переписка
+    [ObservableProperty] public partial bool ConversationsEmpty { get; set; } = true;
+    [ObservableProperty] public partial string ChatHeader { get; set; } = "";
 
     public string ChatPeer { get; private set; } = "";
 

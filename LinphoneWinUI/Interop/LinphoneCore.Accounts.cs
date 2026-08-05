@@ -101,8 +101,14 @@ internal sealed partial class LinphoneCore
     // (ключ пользователя Windows — другой пользователь/машина расшифровать не смогут).
     // Старые незашифрованные файлы (и совсем старый формат login\npassword) читаются на
     // совместимость и сразу перешифровываются.
-    private static string CredPath => Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "LinphoneWinUI", "cred.dat");
+    // Путь и кэш — ЭКЗЕМПЛЯРНЫЕ, а не статические. Статика делала хранилище паролей
+    // непроверяемым: интеграционный тест с тестовым профилем всё равно писал бы в рабочий
+    // cred.dat пользователя и подменял его пароли. При тестовом профиле файл ложится рядом
+    // с ним, боевое поведение не меняется.
+    private string CredPath => _profileDirOverride != null
+        ? Path.Combine(_profileDirOverride, "cred.dat")
+        : Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                       "LinphoneWinUI", "cred.dat");
 
     // Дополнительная энтропия DPAPI: привязывает блоб к приложению (не секрет).
     private static readonly byte[] CredEntropy = System.Text.Encoding.UTF8.GetBytes("L-Phone.cred.v1");
@@ -110,9 +116,9 @@ internal sealed partial class LinphoneCore
     // Кэш расшифрованных паролей: ReadAccount дергается на каждое событие регистрации
     // (re-REGISTER каждые expires × N аккаунтов) — без кэша это файл + DPAPI на UI-потоке
     // по многу раз в минуту. Инвалидация — в SaveCreds.
-    private static Dictionary<string, string>? _credCache;
+    private Dictionary<string, string>? _credCache;
 
-    private static Dictionary<string, string> LoadCreds()
+    private Dictionary<string, string> LoadCreds()
     {
         if (_credCache != null) return _credCache;
         var dict = LoadCredsFromDisk();
@@ -120,7 +126,7 @@ internal sealed partial class LinphoneCore
         return dict;
     }
 
-    private static Dictionary<string, string> LoadCredsFromDisk()
+    private Dictionary<string, string> LoadCredsFromDisk()
     {
         var dict = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         try
@@ -163,7 +169,7 @@ internal sealed partial class LinphoneCore
         return dict;
     }
 
-    private static void SaveCreds(Dictionary<string, string> dict)
+    private void SaveCreds(Dictionary<string, string> dict)
     {
         try
         {
@@ -177,18 +183,18 @@ internal sealed partial class LinphoneCore
         catch (Exception ex)
         {
             _credCache = null;   // не удалось записать — не доверяем кэшу
-            _staticLog?.Invoke("ОШИБКА: пароль аккаунта не сохранён на диск (cred.dat): " + ex.Message);
+            Log?.Invoke("ОШИБКА: пароль аккаунта не сохранён на диск (cred.dat): " + ex.Message);
         }
     }
 
-    private static void SavePasswordLocal(string login, string server, string password)
+    private void SavePasswordLocal(string login, string server, string password)
     {
         var dict = LoadCreds();
         dict[$"{login}@{server}"] = password;
         SaveCreds(dict);
     }
 
-    private static string LoadPasswordLocal(string login, string server)
+    private string LoadPasswordLocal(string login, string server)
     {
         var dict = LoadCreds();
         if (dict.TryGetValue($"{login}@{server}", out var pwd)) return pwd;
@@ -196,7 +202,7 @@ internal sealed partial class LinphoneCore
         return "";
     }
 
-    private static void RemovePasswordLocal(string login, string server)
+    private void RemovePasswordLocal(string login, string server)
     {
         var dict = LoadCreds();
         if (dict.Remove($"{login}@{server}") | dict.Remove(login)) SaveCreds(dict);

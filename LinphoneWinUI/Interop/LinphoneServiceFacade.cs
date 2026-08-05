@@ -24,7 +24,7 @@ public sealed class LinphoneService : ISipService
 {
     private const int IterateIntervalMs = 20;
 
-    private readonly LinphoneCore _core = new();
+    private readonly LinphoneCore _core;
     private readonly CoreDispatcher _dispatcher;
 
     // Кэш настроек rc: их читают из UI десятками вызовов (флаги DND/автоответ, номера, URL),
@@ -32,20 +32,26 @@ public sealed class LinphoneService : ISipService
     private readonly ConcurrentDictionary<string, bool> _flagCache = new();
     private readonly ConcurrentDictionary<string, string> _stringCache = new();
 
-    public LinphoneService()
+    /// <param name="profileDirOverride">Каталог профиля вместо боевого. Задают ТОЛЬКО
+    /// интеграционные тесты — иначе прогон писал бы в рабочий linphonerc пользователя.</param>
+    public LinphoneService(string? profileDirOverride = null)
     {
+        _core = new LinphoneCore(profileDirOverride);
         _dispatcher = new CoreDispatcher(_core.Iterate, IterateIntervalMs);
         _dispatcher.Diagnostics += msg => _core.RaiseLog(msg);
     }
 
     // ---------------- Жизненный цикл ----------------
-    /// <summary>Запускает ядро на выделенном потоке; блокирует до готовности (или бросает ошибку старта).</summary>
-    public void Start()
+    /// <summary>Запускает ядро на выделенном потоке; ждёт готовности не дольше таймаута
+    /// диспетчера (или бросает ошибку старта).</summary>
+    /// <returns>false — ядро ещё поднимается: интерфейс показывать можно, но состояние
+    /// регистрации появится позже.</returns>
+    public bool Start()
     {
         // Ядро откладывает через эту очередь действия, которые нельзя делать из нативного
         // колбэка (например, resume удержанного звонка из call_state_changed).
         _core.Defer = _dispatcher.Post;
-        _dispatcher.Start(_core.Start, "linphone-core");
+        return _dispatcher.Start(_core.Start, "linphone-core");
     }
 
     public void Dispose()
@@ -58,7 +64,24 @@ public sealed class LinphoneService : ISipService
     private T Query<T>(Func<T> f, T fallback = default!,
         [System.Runtime.CompilerServices.CallerMemberName] string caller = "") => _dispatcher.Query(f, fallback, caller);
 
+    /// <summary>Запрос, результат которого пойдёт в кэш: false — ядро не ответило, кэшировать НЕЛЬЗЯ.</summary>
+    private bool TryQuery<T>(Func<T> f, T fallback, out T value,
+        [System.Runtime.CompilerServices.CallerMemberName] string caller = "") => _dispatcher.TryQuery(f, fallback, out value, caller);
+
+    /// <summary>Здоровье ядра за сеанс одной строкой (медленные вызовы, просрочки).
+    /// Ядро НЕ трогает — только собственные счётчики диспетчера, поэтому безопасно
+    /// звать даже при мёртвом Core, в том числе при выходе.</summary>
+    public string HealthSummary() => _dispatcher.HealthSummary();
+
     public bool IsStarted => Query(() => _core.IsStarted, false);
+
+    /// <summary>Готовность ядра БЕЗ обращения к нему — три поля диспетчера. Именно это должен
+    /// опрашивать интерфейс: <see cref="IsStarted"/> во время инициализации ждёт полный таймаут,
+    /// потому что поток ядра занят init и очередь не разбирает.</summary>
+    public bool CoreReady => _dispatcher.CoreReady;
+
+    /// <summary>Ядро упало при старте (а не «ещё поднимается»).</summary>
+    public bool CoreFailed => _dispatcher.StartFailed;
     public string CoreVersion => Query(() => _core.CoreVersion, "?");
     public string ProfileDir => Query(() => _core.ProfileDir, "");
 
@@ -99,25 +122,68 @@ public sealed class LinphoneService : ISipService
     public void SwapCalls() => Post(_core.SwapCalls);
     public void SendDtmf(char digit) => Post(() => _core.SendDtmf(digit));
     public void PlayLocalDtmf(char digit) => Post(() => _core.PlayLocalDtmf(digit));
-    public bool Transfer(string target) => Query(() => _core.Transfer(target), false);
-    public bool TransferToHeldCall() => Query(_core.TransferToHeldCall, false);
-    public bool ToggleMute() => Query(_core.ToggleMute, false);
-    public bool ToggleHold() => Query(_core.ToggleHold, false);
+    // Итог перевода различает «ядро отказало» и «ядро промолчало»: пользователю в этих
+    // случаях надо сказать разное, а прежний общий false их склеивал.
+    public CommandOutcome Transfer(string target) => Outcome(() => _core.Transfer(target));
+    public CommandOutcome TransferToHeldCall() => Outcome(_core.TransferToHeldCall);
+
+    /// <summary>Команда, чей провал видит пользователь: различаем отказ ядра и его молчание.</summary>
+    private CommandOutcome Outcome(Func<bool> command,
+        [System.Runtime.CompilerServices.CallerMemberName] string caller = "")
+    {
+        if (!TryQuery(command, false, out bool ok, caller)) return CommandOutcome.CoreUnavailable;
+        return ok ? CommandOutcome.Done : CommandOutcome.Rejected;
+    }
+    // Команды, а не запросы: результат приходит событием/снимком. Раньше это были Query,
+    // то есть клик по «Микрофону» ждал ядро — и по таймауту рисовал состояние, обратное
+    // тому, которое ядро устанавливало секундой позже.
+    public void ToggleMute() => Post(_core.ToggleMute);
+    public void ToggleHold() => Post(_core.ToggleHold);
+
+    /// <summary>Микрофон заглушён (снимок ядра, без перехода на его поток).</summary>
+    public bool MicMuted => _core.MicMutedSnapshot;
+
+    public event Action<bool>? MicMuteChanged
+    { add => _core.MicMuteChanged += value; remove => _core.MicMuteChanged -= value; }
     public int CurrentCallDuration => Query(() => _core.CurrentCallDuration, 0);
     public void RefreshNetwork() => Post(_core.RefreshNetwork);
+    public void SetNetworkReachable(bool reachable) => Post(() => _core.SetNetworkReachable(reachable));
+    public string CurrentCallEncryption() => Query(_core.CurrentCallEncryption, "none");
+    public CallSecurity CurrentCallSecurity() => Query(_core.CurrentCallSecurity, CallSecurity.None);
+    public CallQuality CurrentQuality() => Query(_core.CurrentQuality, CallQuality.None);
+
+    /// <summary>Уровни микрофона и динамика. СНИМОК, обновляемый на потоке ядра: индикатор
+    /// опрашивает их восемь раз в секунду, и синхронный переход на поток ядра с такой частотой
+    /// подвешивал интерфейс каждый раз, когда ядро задерживалось внутри iterate.</summary>
+    public (float Mic, float Speaker) CurrentAudioLevels() =>
+        (_core.MicLevelSnapshot, _core.SpeakerLevelSnapshot);
+
+    /// <summary>Есть ли настоящий микрофон (снимок; см. CurrentAudioLevels).</summary>
+    public bool HasRealMicrophone => _core.HasRealMicSnapshot;
+
+    public event Action? AudioDevicesChanged
+    { add => _core.AudioDevicesChanged += value; remove => _core.AudioDevicesChanged -= value; }
+
+    public IReadOnlyList<string> AudioDeviceIds(bool input) =>
+        Query(() => _core.AudioDeviceIds(input), (IReadOnlyList<string>)System.Array.Empty<string>());
     public CallEvent? CurrentCallSnapshot() => Query<CallEvent?>(_core.CurrentCallSnapshot, null);
     public CallEvent? DisplayCallSnapshot() => Query<CallEvent?>(_core.DisplayCallSnapshot, null);
 
     // ---------------- Конференция ----------------
     public bool IsInConference => Query(() => _core.IsInConference, false);
     public void HoldCurrent() => Post(_core.HoldCurrent);
-    public bool MergeCallsIntoConference() => Query(_core.MergeCallsIntoConference, false);
+    public CommandOutcome MergeCallsIntoConference() => Outcome(_core.MergeCallsIntoConference);
     public void TerminateConference() => Post(_core.TerminateConference);
 
     // ---------------- Запись разговора ----------------
-    public bool IsRecording => Query(() => _core.IsRecording, false);
+    // Команда, а не запрос: результат приходит событием и снимком. Прежний Query по просрочке
+    // возвращал «не пишется», интерфейс гасил красную точку — а запись при этом шла.
+    public bool IsRecording => _core.RecordingSnapshot;
     public string? RecordPath => Query<string?>(() => _core.RecordPath, null);
-    public bool ToggleRecording() => Query(_core.ToggleRecording, false);
+    public void ToggleRecording() => Post(_core.ToggleRecording);
+
+    public event Action<bool>? RecordingChanged
+    { add => _core.RecordingChanged += value; remove => _core.RecordingChanged -= value; }
     public string GetRecordingsDir() => Query(_core.GetRecordingsDir, "");
     public void SetRecordingsDir(string? path) => Post(() => _core.SetRecordingsDir(path));
 
@@ -130,7 +196,7 @@ public sealed class LinphoneService : ISipService
     public void DeleteChat(string peer) => Post(() => _core.DeleteChat(peer));
 
     // ---------------- Presence ----------------
-    public event Action<string, DialogState>? DialogStateChanged
+    public event Action<string, DialogState, string>? DialogStateChanged
     { add => _core.DialogStateChanged += value; remove => _core.DialogStateChanged -= value; }
 
     public void SyncDialogSubscriptions(IEnumerable<string> extensions)
@@ -172,11 +238,16 @@ public sealed class LinphoneService : ISipService
 
     // ---------------- Видео ----------------
     public void SetupVideo() => Post(_core.SetupVideo);
-    public bool ToggleVideo() => Query(_core.ToggleVideo, false);
+    // Команда, а не запрос (см. ToggleRecording): состояние камеры приходит событием и снимком.
+    public void ToggleVideo() => Post(_core.ToggleVideo);
+
+    public event Action<bool>? CameraStateChanged
+    { add => _core.CameraStateChanged += value; remove => _core.CameraStateChanged -= value; }
+
     public void StartCameraPreview() => Post(_core.StartCameraPreview);
     public void StopCameraPreview() => Post(_core.StopCameraPreview);
     public bool IsSendingVideo() => Query(_core.IsSendingVideo, false);
-    public bool IsCameraOn() => Query(_core.IsCameraOn, false);
+    public bool IsCameraOn() => _core.CameraOnSnapshot;
     /// <summary>Снимок: читается на каждом переключении вкладки — ядро тревожить нельзя.</summary>
     public bool IsVideoActive() => _core.VideoActiveSnapshot;
 
@@ -215,14 +286,27 @@ public sealed class LinphoneService : ISipService
     public void SyncConfig() => Post(_core.SyncConfig);
     public string GetPhonebookUrl() => GetAppStringCached("phonebook_url", () => _core.GetPhonebookUrl(), "");
     public void SetPhonebookUrl(string url)
-    { _stringCache["phonebook_url"] = url ?? ""; Post(() => _core.SetPhonebookUrl(url)); }
+    {
+        // Нормализуем ОДИН раз и передаём дальше уже непустую строку: раньше в кэш ложилось
+        // "", а в ядро — исходный null, то есть кэш и конфиг расходились на ровном месте.
+        string v = url ?? "";
+        _stringCache["phonebook_url"] = v;
+        Post(() => _core.SetPhonebookUrl(v));
+    }
     public (string User, string Password) GetPhonebookAuth() => Query(_core.GetPhonebookAuth, ("", ""));
     public void SetPhonebookAuth(string user, string password) => Post(() => _core.SetPhonebookAuth(user, password));
     public string GetVoicemailNumber() => GetAppStringCached("voicemail_number", () => _core.GetVoicemailNumber(), "*97");
     public void SetVoicemailNumber(string number)
-    { _stringCache["voicemail_number"] = number ?? ""; Post(() => _core.SetVoicemailNumber(number)); }
+    {
+        string v = number ?? "";   // см. SetPhonebookUrl
+        _stringCache["voicemail_number"] = v;
+        Post(() => _core.SetVoicemailNumber(v));
+    }
     public string GetPresenceHookSecret() => Query(_core.GetPresenceHookSecret, "");
     public void SetPresenceHookSecret(string secret) => Post(() => _core.SetPresenceHookSecret(secret));
+    /// <summary>Токен локального API. Хранится в DPAPI-хранилище, не в rc (см. LinphoneCore).</summary>
+    public string GetApiToken() => Query(_core.GetApiToken, "");
+    public void SetApiToken(string token) => Post(() => _core.SetApiToken(token));
     public string GetRingtone() => Query(_core.GetRingtone, "");
     public void SetRingtone(string? path) => Post(() => _core.SetRingtone(path));
     public List<string> GetBuiltInRingtones() => Query(_core.GetBuiltInRingtones, new List<string>());
@@ -233,6 +317,9 @@ public sealed class LinphoneService : ISipService
     /// по просрочке/остановленному ядру вернётся false, а не тихое «применено».</summary>
     public bool SetNat(string stun, bool ice, bool turn, string turnUser, string turnPass, string turnRealm)
         => Query(() => _core.SetNat(stun, ice, turn, turnUser, turnPass, turnRealm), false);
+    /// <summary>Ядро молчит — отвечаем «не задан»: подсказка под полем не стоит того, чтобы
+    /// подвесить настройки, а введённый заново пароль всё равно перезапишет сохранённый.</summary>
+    public bool HasTurnPassword(string turnUser) => Query(() => _core.HasTurnPassword(turnUser), false);
     public (string CaFile, bool Verify) GetTls() => Query(_core.GetTls, ("", true));
     /// <summary>Query, а не Post: пользователь должен увидеть, применилось ли доверие TLS.</summary>
     public bool SetTls(string caFile, bool verify) => Query(() => _core.SetTls(caFile, verify), false);
@@ -241,10 +328,13 @@ public sealed class LinphoneService : ISipService
     { _stringCache["theme"] = theme; Post(() => _core.SetTheme(theme)); }
 
     // Флаги/строки [app]: читаются из UI на каждый чих (DND, автоответ, бейджи) — кэшируем.
+    // ВАЖНО: кэшируем ТОЛЬКО ответ живого ядра. Значение по умолчанию, полученное до старта Core
+    // (или при его смерти), в кэш попадать не должно — иначе оно навсегда подменит собой то, что
+    // записано в конфиге, и настройка перестанет работать, оставаясь «включённой» на вид.
     public bool GetAppFlag(string key, bool def)
     {
         if (_flagCache.TryGetValue(key, out bool v)) return v;
-        v = Query(() => _core.GetAppFlag(key, def), def);
+        if (!TryQuery(() => _core.GetAppFlag(key, def), def, out v)) return def;
         _flagCache[key] = v;
         return v;
     }
@@ -257,8 +347,8 @@ public sealed class LinphoneService : ISipService
 
     public string GetAppString(string key, string def)
     {
-        if (_stringCache.TryGetValue(key, out string? v)) return v;
-        v = Query(() => _core.GetAppString(key, def), def);
+        if (_stringCache.TryGetValue(key, out string? cached)) return cached ?? def;
+        if (!TryQuery(() => _core.GetAppString(key, def), def, out string? v) || v is null) return def;
         _stringCache[key] = v;
         return v;
     }
@@ -272,8 +362,8 @@ public sealed class LinphoneService : ISipService
     /// <summary>Строка rc со своим геттером в ядре (URL книги, номер почты, тема).</summary>
     private string GetAppStringCached(string key, Func<string> read, string fallback)
     {
-        if (_stringCache.TryGetValue(key, out string? v)) return v;
-        v = Query(read, fallback);
+        if (_stringCache.TryGetValue(key, out string? cached)) return cached ?? fallback;
+        if (!TryQuery(read, fallback, out string? v) || v is null) return fallback;   // см. GetAppFlag
         _stringCache[key] = v;
         return v;
     }

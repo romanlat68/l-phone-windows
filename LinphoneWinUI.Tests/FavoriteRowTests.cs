@@ -36,4 +36,44 @@ public class FavoriteRowTests
         var c = PresenceUi.Color(s);
         Assert.True(c.A > 0);   // непрозрачный цвет для лампы
     }
+
+    // ------------------------------------------------------------------
+    // Статус наблюдаемый — пульт обновляется без пересборки
+    // ------------------------------------------------------------------
+    // Раньше Load() делал Clear() + Add() на каждый presence-NOTIFY, а NOTIFY приходит дважды
+    // за каждый звонок каждого коллеги. GridView выбрасывал и строил заново все сорок плиток:
+    // человек терял прокрутку, подсветку под курсором и начатое перетаскивание звонка на
+    // плитку — то есть ломалась ровно та функция, ради которой пульт и сделан.
+
+    [Fact]
+    public void ChangingStatus_RaisesNotifications_ForLampAndEmoji()
+    {
+        var row = new FavoriteRow(new FavoriteEntry("Коллега", "375"), PresenceStatus.Available);
+        var changed = new System.Collections.Generic.List<string>();
+        row.PropertyChanged += (_, e) => changed.Add(e.PropertyName ?? "");
+
+        row.Status = PresenceStatus.OnThePhone;
+
+        Assert.Contains(nameof(FavoriteRow.Status), changed);
+        Assert.Contains(nameof(FavoriteRow.StatusEmojiText), changed);
+        Assert.Contains(nameof(FavoriteRow.LampBrush), changed);
+        Assert.Equal(PresenceUi.Emoji(PresenceStatus.OnThePhone), row.StatusEmojiText);
+    }
+
+    [Fact]
+    public void RingingState_IsObservable()
+    {
+        // Ореол «звонит» перебивает presence. Саму кисть здесь не трогаем: SolidColorBrush
+        // создаётся только на потоке XAML, а тест-хост его не поднимает (по этой же причине
+        // кисти пульта не проверялись никогда). Проверяем то, от чего кисть зависит.
+        var row = new FavoriteRow(new FavoriteEntry("Коллега", "375"), PresenceStatus.Available);
+        var changed = new System.Collections.Generic.List<string>();
+        row.PropertyChanged += (_, e) => changed.Add(e.PropertyName ?? "");
+
+        row.Dialog = DialogState.Early;
+
+        Assert.True(row.IsRinging);
+        Assert.Contains(nameof(FavoriteRow.LampBrush), changed);
+        Assert.Contains(nameof(FavoriteRow.ActionHint), changed);
+    }
 }

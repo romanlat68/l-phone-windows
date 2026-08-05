@@ -158,3 +158,34 @@ public sealed class FavoriteGlyphConverter : IValueConverter
     public object ConvertBack(object value, Type targetType, object parameter, string language)
         => throw new NotSupportedException();
 }
+
+/// <summary>
+/// Цвет строки журнала по направлению звонка. Пропущенный — красный: это единственная
+/// запись, требующая действия, и раньше её приходилось вычитывать словом «Пропущенный»
+/// во второй строке. Входящий и исходящий различаются цветом стрелки — иначе в списке
+/// из сорока строк направление приходится разбирать по наклону значка.
+///
+/// Параметр «name» красит имя (нейтральное для отвеченных), без параметра — стрелку.
+/// </summary>
+public sealed class CallLogBrushConverter : Microsoft.UI.Xaml.Data.IValueConverter
+{
+    // Цвета — из палитры приложения (App.xaml), а не числами здесь: иначе «красный»
+    // журнала однажды разойдётся с «красным» кнопки отбоя, как уже было.
+    private static Microsoft.UI.Xaml.Media.Brush Palette(string key) =>
+        (Microsoft.UI.Xaml.Media.Brush)Microsoft.UI.Xaml.Application.Current.Resources[key];
+
+    public object Convert(object value, Type targetType, object parameter, string language)
+    {
+        if (value is not Interop.CallLogEntry e) return Palette("LpDangerBrush");
+        if (e.Missed) return Palette("LpDangerBrush");
+        // Имя отвеченного звонка оставляем цветом темы: подкрашивать каждую строку значило бы
+        // обесценить красный там, где он действительно что-то значит.
+        if ((parameter as string) == "name")
+            return (Microsoft.UI.Xaml.Media.Brush)Microsoft.UI.Xaml.Application.Current
+                .Resources["TextFillColorPrimaryBrush"];
+        return Palette(e.Incoming ? "LpGreenBrush" : "LpBlueBrush");
+    }
+
+    public object ConvertBack(object value, Type targetType, object parameter, string language)
+        => throw new NotSupportedException();
+}

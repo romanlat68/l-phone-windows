@@ -9,7 +9,7 @@
 # Запускать ОДИН раз. Готовый .pfx хранить вне репозитория и не коммитить.
 [CmdletBinding()]
 param(
-    [string]$Subject  = "CN=L-Phone, O=Example, C=RU",
+    [string]$Subject  = "CN=L-Phone, O=L-Phone, C=RU",
     [string]$OutPfx   = "$env:USERPROFILE\.lphone\code-signing.pfx",
     [int]   $Years    = 5
 )

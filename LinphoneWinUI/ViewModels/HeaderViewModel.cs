@@ -11,12 +11,12 @@ namespace LinphoneWinUI.ViewModels;
 /// </summary>
 public partial class HeaderViewModel : ObservableObject
 {
-    [ObservableProperty] private string _accountName = "";
-    [ObservableProperty] private string _avatarInitials = "—";
-    [ObservableProperty] private string _statusText = "";
-    [ObservableProperty] private bool _dndActive;
-    [ObservableProperty] private bool _autoAnswerActive;
-    [ObservableProperty] private bool _muted;
-    [ObservableProperty] private bool _voicemailWaiting;      // MWI: конверт в шапке
-    [ObservableProperty] private string _voicemailText = "";  // число новых («3»; пусто, если АТС не сообщила)
+    [ObservableProperty] public partial string AccountName { get; set; } = "";
+    [ObservableProperty] public partial string AvatarInitials { get; set; } = "—";
+    [ObservableProperty] public partial string StatusText { get; set; } = "";
+    [ObservableProperty] public partial bool DndActive { get; set; }
+    [ObservableProperty] public partial bool AutoAnswerActive { get; set; }
+    [ObservableProperty] public partial bool Muted { get; set; }
+    [ObservableProperty] public partial bool VoicemailWaiting { get; set; }      // MWI: конверт в шапке
+    [ObservableProperty] public partial string VoicemailText { get; set; } = "";  // число новых («3»; пусто, если АТС не сообщила)
 }

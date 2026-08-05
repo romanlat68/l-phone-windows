@@ -14,8 +14,28 @@
             <SolidColorBrush x:Key="LpBrandStrongBrush" Color="#1C2C44" />
             <SolidColorBrush x:Key="LpGreenBrush" Color="#2BA84A" />
             <SolidColorBrush x:Key="LpRedBrush" Color="#C42B1C" />
+            <!-- Смысловые цвета. Раньше эти же значения были рассыпаны по разметке и коду,
+                 и «красный» существовал в двух вариантах сразу: #C42B1C у бейджей и #FF3B30
+                 у кнопки отбоя. Держим их здесь, чтобы менять в одном месте и не гадать,
+                 какой оттенок «правильный».
+                 LpRedBrush — приглушённый, для бейджей и счётчиков;
+                 LpDangerBrush — яркий, для действий и предупреждений (отбой, запись,
+                 выключенный микрофон, пропущенный звонок). -->
+            <SolidColorBrush x:Key="LpDangerBrush" Color="#FF3B30" />
+            <SolidColorBrush x:Key="LpBlueBrush" Color="#3478F6" />
+            <SolidColorBrush x:Key="LpAmberBrush" Color="#E8A200" />
             <SolidColorBrush x:Key="LpSlateMutedBrush" Color="#9FB0C3" />
             <SolidColorBrush x:Key="LpAvatarFillBrush" Color="#CBD3DC" />
+
+            <!-- Состояния регистрации и вкладок. Жили числами в code-behind: Goldenrod,
+                 IndianRed, Gray и два зелёных (#2BA84A в палитре и FromArgb(43,168,74) на
+                 кнопке видео — одно и то же значение, записанное дважды разными способами).
+                 Держим здесь по той же причине, что и смысловые цвета выше. -->
+            <SolidColorBrush x:Key="LpNeutralBrush" Color="#808080" />
+            <SolidColorBrush x:Key="LpTabActiveBrush" Color="#0078D7" />
+            <!-- Погашенная палочка индикатора качества: тускнеет, а не исчезает — иначе
+                 индикатор менял бы ширину и дёргал соседний текст при каждом обновлении. -->
+            <SolidColorBrush x:Key="LpQualityDimBrush" Color="#3C808080" />
 
             <!-- ===== Токены дайлера «а-ля iPhone» по темам =====
                  ВАЖНО: ключ "Default" в ThemeDictionaries означает ТЁМНУЮ тему (правило WinUI).

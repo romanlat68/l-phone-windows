@@ -88,9 +88,10 @@ internal sealed partial class LinphoneCore
         return best;
     }
 
-    private void OnMessageReceived(IntPtr core, IntPtr room, IntPtr message)
-    {
-        try
+    private void OnMessageReceived(IntPtr core, IntPtr room, IntPtr message) =>
+        // Через SafeCallback, как и остальные нативные колбэки: прежний глухой catch защищал
+        // от падения процесса, но и от диагностики — потерянное сообщение не оставляло следа.
+        SafeCallback(nameof(OnMessageReceived), () =>
         {
             string text = PtrToUtf8(linphone_chat_message_get_utf8_text(message)) ?? "";
             // Отдаём ПОЛНЫЙ чистый адрес (sip:user@host), а не только username: подписчик
@@ -105,9 +106,7 @@ internal sealed partial class LinphoneCore
                 peer = user.Length == 0 ? "" : (domain.Length == 0 ? user : $"sip:{user}@{domain}");
             }
             ChatMessageReceived?.Invoke(peer, text);
-        }
-        catch { }
-    }
+        });
 
     /// <summary>Отправить текстовое сообщение собеседнику (номер/SIP-адрес).</summary>
     public bool SendChat(string peer, string text)

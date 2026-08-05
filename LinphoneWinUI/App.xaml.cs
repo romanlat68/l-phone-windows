@@ -30,7 +30,10 @@ public partial class App : Application
 
     protected override void OnLaunched(LaunchActivatedEventArgs args)
     {
-        _window = new MainWindow();
+        // Состав приложения собирается ДО первого окна: окна получают SIP-ядро из контейнера,
+        // а не создают его сами (см. AppHost).
+        AppHost.Build();
+        _window = AppHost.Create<MainWindow>();
         _window.Activate();
 
         // Crash recovery: если процесс упадёт (или его снимет ОС), Windows перезапустит exe.
@@ -44,11 +47,10 @@ public partial class App : Application
     private static extern int RegisterApplicationRestart(string? pwzCommandline, int dwFlags);
 }
 
-/// <summary>Крэш-лог для саппорта: %LOCALAPPDATA%\LinphoneWinUI\crash.log.</summary>
+/// <summary>Крэш-лог для саппорта: %LOCALAPPDATA%\LinphoneWinUI\logs\crash.log.</summary>
 internal static class CrashLog
 {
-    private static readonly string FilePath = System.IO.Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "LinphoneWinUI", "crash.log");
+    private static readonly string FilePath = System.IO.Path.Combine(AppPaths.Logs, "crash.log");
 
     public static void Write(string source, Exception? ex)
     {

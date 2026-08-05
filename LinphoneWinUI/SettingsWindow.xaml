@@ -27,6 +27,13 @@
                 </Grid>
             </DataTemplate>
             <!-- Элемент списка кодеков: ручка перетаскивания + название + переключатель -->
+            <!-- Подписи «Вкл./Выкл.» у всех переключателей — из ресурсов приложения, а не
+                 из языка Windows: иначе английский интерфейс на русской системе показывал
+                 «Вкл.» рядом с «Echo canceller». -->
+            <Style TargetType="ToggleSwitch">
+                <Setter Property="local:Tr.OnOff" Value="True" />
+            </Style>
+
             <DataTemplate x:Key="CodecTemplate">
                 <Grid Padding="4,4" ColumnSpacing="10">
                     <Grid.ColumnDefinitions>
@@ -36,37 +43,42 @@
                     </Grid.ColumnDefinitions>
                     <FontIcon Grid.Column="0" Glyph="&#xE76F;" FontSize="14" Foreground="Gray" VerticalAlignment="Center" />
                     <TextBlock Grid.Column="1" Text="{Binding Label}" VerticalAlignment="Center" />
+                    <!-- В узкой колонке кодеков подписи не нужны — отключаем локально. -->
                     <ToggleSwitch Grid.Column="2" IsOn="{Binding Enabled}" Toggled="OnCodecToggled"
-                                  OnContent="" OffContent="" MinWidth="0" />
+                                  local:Tr.OnOff="False" OnContent="" OffContent="" MinWidth="0" />
                 </Grid>
             </DataTemplate>
         </NavigationView.Resources>
         <NavigationView.MenuItems>
-            <NavigationViewItem x:Name="NiAccount" Content="Аккаунт" Tag="account">
+            <NavigationViewItem x:Name="NiAccount" local:Tr.Key="NavAccount.Content" Content="Аккаунты" Tag="account">
                 <NavigationViewItem.Icon>
                     <FontIcon Foreground="BlueViolet" Glyph="&#xE77b;" /></NavigationViewItem.Icon>
             </NavigationViewItem>
-            <NavigationViewItem x:Name="NiDevices" Content="Звонки и устройства" Tag="devices">
+            <NavigationViewItem x:Name="NiDevices" local:Tr.Key="NavDevices.Content" Content="Звук и видео" Tag="devices">
                 <NavigationViewItem.Icon>
                     <FontIcon Foreground="Green" Glyph="&#xE720;" /></NavigationViewItem.Icon>
             </NavigationViewItem>
-            <NavigationViewItem x:Name="NiContacts" Content="Контакты" Tag="contacts">
+            <NavigationViewItem x:Name="NiCalls" local:Tr.Key="NavCalls.Content" Content="Звонки" Tag="calls">
+                <NavigationViewItem.Icon>
+                    <FontIcon Foreground="#2BA84A" Glyph="&#xE717;" /></NavigationViewItem.Icon>
+            </NavigationViewItem>
+            <NavigationViewItem x:Name="NiContacts" local:Tr.Key="NavContacts.Content" Content="Контакты" Tag="contacts">
                 <NavigationViewItem.Icon>
                     <FontIcon Foreground="Violet" Glyph="&#xE779;" /></NavigationViewItem.Icon>
             </NavigationViewItem>
-            <NavigationViewItem x:Name="NiCodecs" Content="Кодеки и шифрование" Tag="codecs">
+            <NavigationViewItem x:Name="NiIntegrations" local:Tr.Key="NavIntegrations.Content" Content="Интеграции" Tag="integrations">
                 <NavigationViewItem.Icon>
-                    <FontIcon Foreground="MediumVioletRed" Glyph="&#xE943;" /></NavigationViewItem.Icon>
+                    <FontIcon Foreground="MediumVioletRed" Glyph="&#xE71B;" /></NavigationViewItem.Icon>
             </NavigationViewItem>
-            <NavigationViewItem x:Name="NiBehavior" Content="Поведение" Tag="behavior">
+            <NavigationViewItem x:Name="NiNetwork" local:Tr.Key="NavNetwork.Content" Content="Сеть" Tag="network">
+                <NavigationViewItem.Icon>
+                    <FontIcon Foreground="Blue" Glyph="&#xE968;" /></NavigationViewItem.Icon>
+            </NavigationViewItem>
+            <NavigationViewItem x:Name="NiApp" local:Tr.Key="NavApp.Content" Content="Приложение" Tag="app">
                 <NavigationViewItem.Icon>
                     <FontIcon Foreground="Teal" Glyph="&#xE713;" /></NavigationViewItem.Icon>
             </NavigationViewItem>
-            <NavigationViewItem x:Name="NiAdvanced" Content="Дополнительно" Tag="advanced">
-                <NavigationViewItem.Icon>
-                    <FontIcon Foreground="Blue" Glyph="&#xE713;" /></NavigationViewItem.Icon>
-            </NavigationViewItem>
-            <NavigationViewItem x:Name="NiAbout" Content="О программе" Tag="about">
+            <NavigationViewItem x:Name="NiAbout" local:Tr.Key="NavAbout.Content" Content="О программе" Tag="about">
                 <NavigationViewItem.Icon>
                     <FontIcon Foreground="#2B88D8" Glyph="&#xE946;" /></NavigationViewItem.Icon>
             </NavigationViewItem>
@@ -125,13 +137,8 @@
             <!-- ============ Звонки и устройства ============ -->
             <ScrollViewer x:Name="DevicesPanel" Visibility="Collapsed" Padding="12,10" VerticalScrollBarVisibility="Auto">
                 <StackPanel Spacing="12" MaxWidth="460" MinWidth="400" HorizontalAlignment="Left">
-                    <TextBlock local:Tr.Key="TitleDevices.Text" Text="Звонки и устройства" FontSize="22" FontWeight="SemiBold" />
+                    <TextBlock local:Tr.Key="TitleDevices.Text" Text="Звук и видео" FontSize="22" FontWeight="SemiBold" />
                     <ToggleSwitch x:Name="EchoSwitch" local:Tr.Key="SwEcho.Header" Header="Эхоподавитель" Toggled="OnEchoToggled" />
-                    <ComboBox x:Name="DtmfCombo" local:Tr.Key="ComboDtmf.Header" Header="Способ передачи DTMF" HorizontalAlignment="Stretch"
-                              SelectionChanged="OnDtmfChanged">
-                        <ComboBoxItem Content="RFC2833 (RTP)" Tag="rfc2833" />
-                        <ComboBoxItem Content="SIP INFO" Tag="info" />
-                    </ComboBox>
                     <!-- Микрофон + его проверка -->
                     <ComboBox x:Name="MicCombo" local:Tr.Key="ComboMic.Header" Header="Микрофон" HorizontalAlignment="Stretch"
                               DisplayMemberPath="Name" SelectedValuePath="Id" SelectionChanged="OnMicChanged" />
@@ -152,7 +159,7 @@
                     <Button x:Name="CameraTestButton" local:Tr.Key="BtnCheckCamera.Content" Content="Показать превью" Click="OnTestCameraClick" HorizontalAlignment="Left" Margin="0,2,0,0" />
                     <TextBlock local:Tr.Key="LblCheckCamera.Text" Text="Превью откроется в отдельном окне" Foreground="Gray" FontSize="12" />
 
-                    <TextBlock local:Tr.Key="LblRingtone.Text" Text="Рингтон (WAV)" Foreground="Gray" FontSize="12" Margin="0,6,0,0" />
+<TextBlock local:Tr.Key="LblRingtone.Text" Text="Рингтон (WAV)" Foreground="Gray" FontSize="12" Margin="0,6,0,0" />
                     <TextBlock x:Name="RingtoneText" Text="(по умолчанию)" FontSize="13" TextWrapping="Wrap" />
                     <ComboBox x:Name="RingtoneCombo" local:Tr.Key="ComboRingtone.Header" Header="Встроенные рингтоны"
                               HorizontalAlignment="Stretch" Margin="0,2,0,2"
@@ -168,21 +175,7 @@
                         <Button local:Tr.Key="BtnDefaultRingtone.Content" Grid.Column="2" Content="По умолчанию" HorizontalAlignment="Stretch" Click="OnResetRingtoneClick" />
                     </Grid>
 
-                    <TextBlock local:Tr.Key="LblRecordings.Text" Text="Папка для записей разговоров" Foreground="Gray" FontSize="12" Margin="0,6,0,0" />
-                    <TextBlock x:Name="RecordingsDirText" Text="—" FontSize="13" TextWrapping="Wrap" IsTextSelectionEnabled="True" />
-                    <Grid ColumnSpacing="8">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="*" />
-                        </Grid.ColumnDefinitions>
-                        <Button local:Tr.Key="BtnPickRecordingsDir.Content" Grid.Column="0" Content="Выбрать…" HorizontalAlignment="Stretch" Click="OnPickRecordingsDirClick" />
-                        <Button local:Tr.Key="BtnOpenRecordingsDir.Content" Grid.Column="1" Content="Открыть папку" HorizontalAlignment="Stretch" Click="OnOpenRecordingsDirClick" />
-                        <Button local:Tr.Key="BtnDefaultRecordingsDir.Content" Grid.Column="2" Content="По умолчанию" HorizontalAlignment="Stretch" Click="OnResetRecordingsDirClick" />
-                    </Grid>
-                    <ToggleSwitch x:Name="AutoRecordSwitch" local:Tr.Key="SwAutoRecord.Header"
-                                  Header="Автоматически записывать все разговоры" Toggled="OnAutoRecordToggled" />
-                </StackPanel>
+                    </StackPanel>
             </ScrollViewer>
 
             <!-- ============ Контакты ============ -->
@@ -190,7 +183,7 @@
                 <StackPanel Spacing="12" MaxWidth="460" MinWidth="400" HorizontalAlignment="Left">
                     <Grid Grid.Row="0" Margin="0,0,0,8">
                         <TextBlock local:Tr.Key="TitleContacts.Text" Text="Контакты" FontSize="22" FontWeight="SemiBold" />
-                        <Button local:Tr.Key="BtnSave.Content" Content="Сохранить" Style="{StaticResource AccentButtonStyle}"
+                        <Button local:Tr.Key="BtnCheckBook.Content" Content="Проверить"
                             HorizontalAlignment="Right" Click="OnSavePhonebookClick" />
                     </Grid>
                     <TextBlock local:Tr.Key="LblPhonebookDesc.Text" Text="Внешняя адресная книга загружается по HTTP (XML вида PhoneBook → DirectoryEntry)."
@@ -200,18 +193,28 @@
 
                     <!-- Опциональная HTTP-авторизация для удалённых книг (локальным не нужна). -->
                     <TextBox x:Name="PhonebookUserBox" local:Tr.Key="BoxPhonebookUser.Header" Header="Логин (необязательно)" />
+                    <!-- Пароль книги, в отличие от TURN, читается обратно (DPAPI, свой же
+                         пользователь Windows) — показываем его точками, как обычное поле пароля,
+                         и объяснять «пусто — оставить прежний» больше не нужно. -->
                     <PasswordBox x:Name="PhonebookPassBox" local:Tr.Key="BoxPhonebookPass.Header"
-                                 Header="Пароль (пусто — оставить прежний)" PasswordRevealMode="Peek" />
+                                 Header="Пароль" PasswordRevealMode="Peek" />
 
                     <TextBlock x:Name="PhonebookStatus" Foreground="Gray" FontSize="12" TextWrapping="Wrap" />
                 </StackPanel>
             </ScrollViewer>
 
-            <!-- ============ Кодеки и шифрование ============ -->
-            <ScrollViewer x:Name="CodecsPanel" Visibility="Collapsed" Padding="12,10" VerticalScrollBarVisibility="Auto">
+            <!-- ============ Звонки ============ -->
+            <ScrollViewer x:Name="CallsPanel" Visibility="Collapsed" Padding="12,10" VerticalScrollBarVisibility="Auto">
                 <StackPanel Spacing="12" MaxWidth="460" MinWidth="400" HorizontalAlignment="Left">
-                    <TextBlock local:Tr.Key="TitleCodecs.Text" Text="Кодеки и шифрование" FontSize="22" FontWeight="SemiBold" />
-                    <ComboBox x:Name="EncryptionCombo" local:Tr.Key="ComboEncryption.Header" Header="Шифрование медиа" HorizontalAlignment="Stretch"
+                    <TextBlock local:Tr.Key="TitleCalls.Text" Text="Звонки" FontSize="22" FontWeight="SemiBold" />
+
+<ComboBox x:Name="DtmfCombo" local:Tr.Key="ComboDtmf.Header" Header="Способ передачи DTMF" HorizontalAlignment="Stretch"
+                              SelectionChanged="OnDtmfChanged">
+                        <ComboBoxItem Content="RFC2833 (RTP)" Tag="rfc2833" />
+                        <ComboBoxItem Content="SIP INFO" Tag="info" />
+                    </ComboBox>
+
+<ComboBox x:Name="EncryptionCombo" local:Tr.Key="ComboEncryption.Header" Header="Шифрование медиа" HorizontalAlignment="Stretch"
                               SelectionChanged="OnEncryptionChanged">
                         <ComboBoxItem local:Tr.Key="EncNone.Content" Content="Нет" Tag="none" />
                         <ComboBoxItem Content="SRTP" Tag="srtp" />
@@ -228,71 +231,151 @@
                     <ListView x:Name="VideoCodecsList" SelectionMode="None"
                               CanReorderItems="True" AllowDrop="True" ReorderMode="Enabled"
                               ItemTemplate="{StaticResource CodecTemplate}" />
-                </StackPanel>
-            </ScrollViewer>
 
-            <!-- ============ Поведение ============ -->
-            <ScrollViewer x:Name="BehaviorPanel" Visibility="Collapsed" Padding="12,10" VerticalScrollBarVisibility="Auto">
-                <StackPanel Spacing="12" MaxWidth="460" MinWidth="400" HorizontalAlignment="Left">
-                    <TextBlock local:Tr.Key="TitleBehavior.Text" Text="Поведение" FontSize="22" FontWeight="SemiBold" />
-                    <ToggleSwitch x:Name="AutostartSwitch" local:Tr.Key="SwAutostart.Header" Header="Запускать вместе с Windows" Toggled="OnAutostartToggled" />
-                    <ToggleSwitch x:Name="TraySwitch" local:Tr.Key="SwTray.Header" Header="Сворачивать в трей при закрытии" Toggled="OnTrayToggled" />
-                    <ToggleSwitch x:Name="StartHiddenSwitch" local:Tr.Key="SwStartHidden.Header" Header="Запускать свёрнутым в трей" Toggled="OnStartHiddenToggled" />
-                    <ToggleSwitch x:Name="IncomingFrontSwitch" local:Tr.Key="SwIncomingFront.Header" Header="Показывать окно поверх при входящем" Toggled="OnIncomingFrontToggled" />
-                    <ToggleSwitch x:Name="PublishPresenceSwitch" local:Tr.Key="SwPublishPresence.Header" Header="Публиковать мой статус (коллеги видят меня)" Toggled="OnPublishPresenceToggled" />
-                    <ToggleSwitch x:Name="AutoAnswerSwitch" local:Tr.Key="SwAutoAnswer.Header" Header="Автоответ на входящие" Toggled="OnAutoAnswerToggled" />
+                    <TextBlock local:Tr.Key="LblIncomingGroup.Text" Text="Входящие" FontWeight="SemiBold" Margin="0,10,0,0" />
+<ToggleSwitch x:Name="AutoAnswerSwitch" local:Tr.Key="SwAutoAnswer.Header" Header="Автоответ на входящие" Toggled="OnAutoAnswerToggled" />
                     <NumberBox x:Name="AutoAnswerDelayBox" local:Tr.Key="BoxAutoAnswerDelay.Header" Header="Задержка автоответа (сек)"
                                Value="0" Minimum="0" Maximum="60" SpinButtonPlacementMode="Inline"
                                ValueChanged="OnAutoAnswerDelayChanged" HorizontalAlignment="Left" MinWidth="220" />
-                    <ToggleSwitch x:Name="ClickToCallSwitch" local:Tr.Key="SwClickToCall.Header"
-                                  Header="Открывать ссылки tel: и sip: (click-to-call)" Toggled="OnClickToCallToggled" />
-                    <ToggleSwitch x:Name="AutoRedialSwitch" local:Tr.Key="SwAutoRedial.Header" Header="Автодозвон при «занято»" Toggled="OnAutoRedialToggled" />
+                    <!-- Интерком/оповещение: АТС просит ответить сама заголовком Alert-Info.
+                         Так работают интерком-коды, групповые оповещения и домофоны. -->
+                    <ToggleSwitch x:Name="IntercomSwitch" local:Tr.Key="SwIntercom.Header"
+                                  Header="Отвечать по команде АТС (интерком, оповещение)"
+                                  Toggled="OnIntercomToggled" />
+
+<ToggleSwitch x:Name="AutoRedialSwitch" local:Tr.Key="SwAutoRedial.Header" Header="Автодозвон при «занято»" Toggled="OnAutoRedialToggled" />
                     <NumberBox x:Name="AutoRedialDelayBox" local:Tr.Key="BoxAutoRedialDelay.Header" Header="Интервал автодозвона (сек)"
                                Value="30" Minimum="5" Maximum="600" SpinButtonPlacementMode="Inline"
                                ValueChanged="OnAutoRedialDelayChanged" HorizontalAlignment="Left" MinWidth="220" />
 
-                    <!-- Номер прослушивания голосовой почты — его набирает конверт MWI в шапке. -->
+<!-- Номер прослушивания голосовой почты — его набирает конверт MWI в шапке. -->
                     <TextBox x:Name="VoicemailNumberBox" local:Tr.Key="BoxVoicemail.Header" Header="Номер голосовой почты"
                              PlaceholderText="*97" TextChanged="OnVoicemailNumberChanged"
                              HorizontalAlignment="Left" MinWidth="220" />
+
+<TextBlock local:Tr.Key="LblParkingGroup.Text" Text="Парковка звонков" FontWeight="SemiBold" Margin="0,10,0,0" />
+                    <TextBox x:Name="ParkExtBox" local:Tr.Key="LblParkExt.Text" Header="Номер парковки"
+                             PlaceholderText="500" LostFocus="OnParkingChanged" />
+                    <TextBox x:Name="ParkSlotsBox" local:Tr.Key="LblParkSlots.Text" Header="Слоты парковки"
+                             PlaceholderText="501-520" LostFocus="OnParkingChanged" />
+                    <TextBlock x:Name="ParkStatus" TextWrapping="Wrap" FontSize="12" Foreground="Gray" />
+
+                    <TextBlock local:Tr.Key="LblRecordGroup.Text" Text="Запись разговоров" FontWeight="SemiBold" Margin="0,10,0,0" />
+<TextBlock local:Tr.Key="LblRecordings.Text" Text="Папка для записей разговоров" Foreground="Gray" FontSize="12" Margin="0,6,0,0" />
+                    <TextBlock x:Name="RecordingsDirText" Text="—" FontSize="13" TextWrapping="Wrap" IsTextSelectionEnabled="True" />
+                    <Grid ColumnSpacing="8">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <Button local:Tr.Key="BtnPickRecordingsDir.Content" Grid.Column="0" Content="Выбрать…" HorizontalAlignment="Stretch" Click="OnPickRecordingsDirClick" />
+                        <Button local:Tr.Key="BtnOpenRecordingsDir.Content" Grid.Column="1" Content="Открыть папку" HorizontalAlignment="Stretch" Click="OnOpenRecordingsDirClick" />
+                        <Button local:Tr.Key="BtnDefaultRecordingsDir.Content" Grid.Column="2" Content="По умолчанию" HorizontalAlignment="Stretch" Click="OnResetRecordingsDirClick" />
+                    </Grid>
+                    <ToggleSwitch x:Name="AutoRecordSwitch" local:Tr.Key="SwAutoRecord.Header"
+                                  Header="Автоматически записывать все разговоры" Toggled="OnAutoRecordToggled" />
                 </StackPanel>
             </ScrollViewer>
 
-            <!-- ============ Дополнительно ============ -->
-            <ScrollViewer x:Name="AdvancedPanel" Visibility="Collapsed" Padding="12,10" VerticalScrollBarVisibility="Auto">
+            <!-- ============ Интеграции ============ -->
+            <ScrollViewer x:Name="IntegrationsPanel" Visibility="Collapsed" Padding="12,10" VerticalScrollBarVisibility="Auto">
                 <StackPanel Spacing="12" MaxWidth="460" MinWidth="400" HorizontalAlignment="Left">
-                    <Grid Grid.Row="0" Margin="0,0,0,8">
-                        <TextBlock local:Tr.Key="TitleAdvanced.Text" Text="Дополнительно" FontSize="22" FontWeight="SemiBold" VerticalAlignment="Center"/>
-                        <Button local:Tr.Key="BtnSave.Content" Content="Сохранить" Style="{StaticResource AccentButtonStyle}"
-                            HorizontalAlignment="Right" Click="OnSaveProvisioningClick" />
-                    </Grid>
-                    <ComboBox x:Name="LangCombo" local:Tr.Key="ComboLang.Header" Header="Язык" HorizontalAlignment="Stretch"
-                              SelectionChanged="OnLanguageChanged">
-                        <ComboBoxItem local:Tr.Key="LangSystem.Content" Content="Системный" Tag="" />
-                        <ComboBoxItem Content="Русский" Tag="ru" />
-                        <ComboBoxItem Content="English" Tag="en-US" />
-                        <ComboBoxItem Content="中文" Tag="zh-Hans" />
-                    </ComboBox>
-                    <ComboBox x:Name="ThemeCombo" local:Tr.Key="ComboTheme.Header" Header="Оформление" HorizontalAlignment="Stretch"
-                              SelectionChanged="OnThemeChanged">
-                        <ComboBoxItem local:Tr.Key="ThemeSystem.Content" Content="Системная" Tag="system" />
-                        <ComboBoxItem local:Tr.Key="ThemeLight.Content" Content="Светлая" Tag="light" />
-                        <ComboBoxItem local:Tr.Key="ThemeDark.Content" Content="Тёмная" Tag="dark" />
-                    </ComboBox>
+                    <TextBlock local:Tr.Key="TitleIntegrations.Text" Text="Интеграции" FontSize="22" FontWeight="SemiBold" />
 
-                    <TextBlock local:Tr.Key="LblNat.Text" Text="Сеть (NAT)" FontWeight="SemiBold" Margin="0,8,0,0" />
+<!-- Работа оператора: софтфон обычно под другим окном, и обе настройки
+                         про то, как дотянуться до звонка, не покидая CRM. -->
+                    <!-- Парковка. Номера обязаны совпадать с res_parking.conf на АТС:
+                         лишний слот — это SUBSCRIBE в пустоту, недостающий — звонок,
+                         который стоит на стоянке и нигде не показан. -->
+                    <!-- Локальный API для CRM. Умеет ЗВОНИТЬ, поэтому по умолчанию выключен,
+                         слушает только 127.0.0.1 и требует токен на каждый запрос. -->
+                    <TextBlock local:Tr.Key="LblApiGroup.Text" Text="Интеграция с CRM" FontWeight="SemiBold" Margin="0,10,0,0" />
+                    <ToggleSwitch x:Name="ApiSwitch" local:Tr.Key="SwApi.Header"
+                                  Header="Локальный HTTP-API (127.0.0.1)" Toggled="OnApiToggled" />
+                    <Grid ColumnSpacing="8" Margin="0,4,0,0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <TextBox Grid.Column="0" x:Name="ApiPortBox" local:Tr.Key="LblApiPort.Text"
+                                 Header="Порт" Width="90" LostFocus="OnApiSettingChanged" />
+                        <TextBox Grid.Column="1" x:Name="ApiTokenBox" local:Tr.Key="LblApiToken.Text"
+                                 Header="Токен" IsReadOnly="True" />
+                        <Button Grid.Column="2" x:Name="ApiTokenNew" local:Tr.Key="BtnApiNewToken.Content"
+                                Content="Обновить" VerticalAlignment="Bottom" Click="OnApiNewToken" />
+                    </Grid>
+                    <TextBlock x:Name="ApiHint" TextWrapping="Wrap" FontSize="12" Foreground="Gray" />
+                    <Button x:Name="ApiCopyExample" local:Tr.Key="BtnApiCopy.Content" Content="Скопировать пример"
+                            HorizontalAlignment="Left" Click="OnApiCopyExample" />
+
+                    <!-- Уведомление CRM о звонках. Самое ценное — карточка клиента, открытая
+                         ДО того, как оператор снял трубку. -->
+                    <TextBox x:Name="CallHookBox" local:Tr.Key="LblCallHook.Text"
+                             Header="Ссылка на карточку клиента"
+                             PlaceholderText="https://crm/card?phone={number}"
+                             TextWrapping="Wrap" LostFocus="OnCallHookChanged" Margin="0,6,0,0" />
+                    <TextBlock local:Tr.Key="LblCallHookHint.Text" FontSize="12" Foreground="Gray" TextWrapping="Wrap"
+                               Text="Подстановки: {number} {name} {event} {direction} {duration} {callid}" />
+                    <ToggleSwitch x:Name="CallHookBrowserSwitch" local:Tr.Key="SwCallHookBrowser.Header"
+                                  Header="Открывать в браузере (иначе тихий запрос)" Toggled="OnCallHookChanged" />
+                    <ToggleSwitch x:Name="CallHookIncomingSwitch" local:Tr.Key="SwCallHookIncoming.Header"
+                                  Header="Только на входящие" Toggled="OnCallHookChanged" />
+
+<ToggleSwitch x:Name="ClickToCallSwitch" local:Tr.Key="SwClickToCall.Header"
+                                  Header="Открывать ссылки tel: и sip: (click-to-call)" Toggled="OnClickToCallToggled" />
+
+<TextBlock local:Tr.Key="LblPbxHook.Text" Text="Интеграция с АТС" FontWeight="SemiBold" Margin="0,10,0,0" />
+                    <TextBlock local:Tr.Key="LblPbxHookDesc.Text"
+                               Text="При смене статуса клиент дёрнет этот URL, чтобы АТС узнала о нём (CustomPresence): dnd заворачивает звонки, away — только показ. Плейсхолдеры: {ext} — номер аккаунта, {state} — available/away/dnd."
+                               Foreground="Gray" FontSize="12" TextWrapping="Wrap" />
+                    <TextBox x:Name="PresenceHookUrlBox" local:Tr.Key="BoxPresenceHook.Header" Header="URL уведомления о статусе"
+                             PlaceholderText="http://атс:8091/prov/status?ext={ext}&amp;state={state}" />
+                    <PasswordBox x:Name="PresenceHookSecretBox" local:Tr.Key="BoxPresenceHookSecret.Header"
+                                 Header="Секрет подписи (пусто — без подписи)" PasswordRevealMode="Peek" />
+
+<TextBlock local:Tr.Key="LblProvisioning.Text" Text="Удалённое конфигурирование" FontWeight="SemiBold" Margin="0,10,0,0" />
+                    <TextBlock local:Tr.Key="LblProvisioningDesc.Text" Text="При запуске приложение скачает настройки по этому адресу (provisioning)."
+                               Foreground="Gray" FontSize="12" TextWrapping="Wrap" />
+                    <TextBox x:Name="ProvisioningUrlBox" local:Tr.Key="BoxProvisioningUrl.Header" Header="URL удалённого конфигурирования"
+                             PlaceholderText="https://сервер/provisioning.xml" />
+                    <TextBlock x:Name="ProvisioningStatus" Foreground="Gray" FontSize="12" TextWrapping="Wrap" />
+                    <TextBlock local:Tr.Key="LblRestartHint.Text" Text="Изменения применятся после перезапуска приложения."
+                               Foreground="Gray" FontSize="12" />
+                </StackPanel>
+            </ScrollViewer>
+
+            <!-- ============ Сеть ============ -->
+            <ScrollViewer x:Name="NetworkPanel" Visibility="Collapsed" Padding="12,10" VerticalScrollBarVisibility="Auto">
+                <StackPanel Spacing="12" MaxWidth="460" MinWidth="400" HorizontalAlignment="Left">
+                    <TextBlock local:Tr.Key="TitleNetwork.Text" Text="Сеть" FontSize="22" FontWeight="SemiBold" />
+
+<TextBlock local:Tr.Key="LblNat.Text" Text="Сеть (NAT)" FontWeight="SemiBold" Margin="0,8,0,0" />
                     <TextBox x:Name="StunBox" local:Tr.Key="BoxStun.Header" Header="STUN-сервер" PlaceholderText="stun.example.com:3478" />
                     <ToggleSwitch x:Name="IceSwitch" local:Tr.Key="SwIce.Header" Header="Использовать ICE" />
                     <ToggleSwitch x:Name="TurnSwitch" local:Tr.Key="SwTurn.Header" Header="Использовать TURN (релей через STUN-сервер)" />
-                    <TextBox x:Name="TurnUserBox" local:Tr.Key="BoxTurnUser.Header" Header="Логин TURN" />
-                    <PasswordBox x:Name="TurnPassBox" local:Tr.Key="BoxTurnPass.Header" Header="Пароль TURN (пусто — не менять)" />
+                    <TextBox x:Name="TurnUserBox" local:Tr.Key="BoxTurnUser.Header" Header="Логин TURN"
+                             LostFocus="OnTurnUserChanged" />
+                    <!-- Пароль обратно не читается (он в auth_info liblinphone, а с realm — вообще
+                         только как хеш ha1). Пустое поле выглядело бы так, будто пароля нет вовсе,
+                         поэтому рисуем точки-заполнитель сами: они исчезают, как только в поле
+                         щёлкнули, и не уходят на сервер вместо настоящего пароля. -->
+                    <PasswordBox x:Name="TurnPassBox" local:Tr.Key="BoxTurnPass.Header" Header="Пароль TURN"
+                                 PasswordRevealMode="Peek"
+                                 GotFocus="OnTurnPassGotFocus" LostFocus="OnTurnPassLostFocus" />
+                    <TextBlock x:Name="TurnPassState" TextWrapping="Wrap" FontSize="12" Margin="0,-6,0,0"
+                               Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                     <!-- Realm задаёт сам TURN-сервер (coturn: realm= в turnserver.conf). Указав его,
                          мы даём liblinphone сложить в linphonerc хеш ha1 вместо открытого пароля. -->
                     <TextBox x:Name="TurnRealmBox" local:Tr.Key="BoxTurnRealm.Header" Header="Realm TURN (как на сервере)"
                              PlaceholderText="example.com" />
                     <Button local:Tr.Key="BtnApplyNat.Content" Content="Применить (сеть)" HorizontalAlignment="Left" Click="OnApplyNatClick" />
+                    <!-- Своя строка, а не общая с провизионингом: та живёт в разделе «Интеграции»,
+                         и её сообщения человек, нажавший «Применить» здесь, просто не видел. -->
+                    <TextBlock x:Name="NetStatus" TextWrapping="Wrap" FontSize="12" />
 
-                    <!-- Доверие TLS. Проверка сертификата включена по умолчанию и снимается только
+<!-- Доверие TLS. Проверка сертификата включена по умолчанию и снимается только
                          осознанно: половина АТС стоит на самоподписанных, и до этого клиент
                          показывал пользователю голое «Failed» без причины. -->
                     <TextBlock local:Tr.Key="LblTls.Text" Text="Шифрование сигнализации (TLS)" FontWeight="SemiBold" Margin="0,10,0,0" />
@@ -318,33 +401,92 @@
                                Foreground="{ThemeResource SystemFillColorCautionBrush}" />
                     <Button local:Tr.Key="BtnApplyTls.Content" Content="Применить (TLS)" HorizontalAlignment="Left" Click="OnApplyTlsClick" />
                     <TextBlock x:Name="TlsStatus" TextWrapping="Wrap" FontSize="12" />
+                </StackPanel>
+            </ScrollViewer>
 
-                    <!-- Обновления. Проверка фоновая, установка — только с согласия: оператор
-                         не должен получить перезапуск клиента посреди рабочего дня. -->
-                    <TextBlock local:Tr.Key="LblUpdates.Text" Text="Обновления" FontWeight="SemiBold" Margin="0,10,0,0" />
-                    <ToggleSwitch x:Name="UpdateCheckSwitch" local:Tr.Key="SwUpdateCheck.Header"
-                                  Header="Проверять обновления при запуске" Toggled="OnUpdateCheckToggled" />
-                    <Button x:Name="CheckUpdateButton" local:Tr.Key="BtnCheckUpdate.Content"
-                            Content="Проверить сейчас" HorizontalAlignment="Left" Click="OnCheckUpdateClick" />
+            <!-- ============ Приложение ============ -->
+            <ScrollViewer x:Name="AppPanel" Visibility="Collapsed" Padding="12,10" VerticalScrollBarVisibility="Auto">
+                <StackPanel Spacing="12" MaxWidth="460" MinWidth="400" HorizontalAlignment="Left">
+                    <TextBlock local:Tr.Key="TitleApp.Text" Text="Приложение" FontSize="22" FontWeight="SemiBold" />
 
-                    <TextBlock local:Tr.Key="LblProvisioning.Text" Text="Удалённое конфигурирование" FontWeight="SemiBold" Margin="0,10,0,0" />
-                    <TextBlock local:Tr.Key="LblProvisioningDesc.Text" Text="При запуске приложение скачает настройки по этому адресу (provisioning)."
-                               Foreground="Gray" FontSize="12" TextWrapping="Wrap" />
-                    <TextBox x:Name="ProvisioningUrlBox" local:Tr.Key="BoxProvisioningUrl.Header" Header="URL удалённого конфигурирования"
-                             PlaceholderText="https://сервер/provisioning.xml" />
+<ComboBox x:Name="LangCombo" local:Tr.Key="ComboLang.Header" Header="Язык" HorizontalAlignment="Stretch"
+                              SelectionChanged="OnLanguageChanged">
+                        <ComboBoxItem local:Tr.Key="LangSystem.Content" Content="Системный" Tag="" />
+                        <ComboBoxItem Content="Русский" Tag="ru" />
+                        <!-- Именно "en", а не "en-US": в PRI строки лежат под схлопнутым
+                             квалификатором, и по полному тегу не находится ничего. -->
+                        <ComboBoxItem Content="English" Tag="en" />
+                        <ComboBoxItem Content="中文" Tag="zh-Hans" />
+                    </ComboBox>
+                    <!-- Язык — единственная настройка, которая НЕ применяется сразу: строки
+                         разложены при старте. Предупреждение обязано быть здесь же, у выбора;
+                         раньше оно печаталось в строке раздела «Интеграции», то есть нигде. -->
+                    <TextBlock x:Name="LangNote" TextWrapping="Wrap" FontSize="12"
+                               Foreground="{ThemeResource SystemFillColorCautionBrush}" />
+                    <ComboBox x:Name="ThemeCombo" local:Tr.Key="ComboTheme.Header" Header="Оформление" HorizontalAlignment="Stretch"
+                              SelectionChanged="OnThemeChanged">
+                        <ComboBoxItem local:Tr.Key="ThemeSystem.Content" Content="Системная" Tag="system" />
+                        <ComboBoxItem local:Tr.Key="ThemeLight.Content" Content="Светлая" Tag="light" />
+                        <ComboBoxItem local:Tr.Key="ThemeDark.Content" Content="Тёмная" Tag="dark" />
+                    </ComboBox>
 
-                    <TextBlock local:Tr.Key="LblPbxHook.Text" Text="Интеграция с АТС" FontWeight="SemiBold" Margin="0,10,0,0" />
-                    <TextBlock local:Tr.Key="LblPbxHookDesc.Text"
-                               Text="При смене статуса клиент дёрнет этот URL, чтобы АТС узнала о нём (CustomPresence): dnd заворачивает звонки, away — только показ. Плейсхолдеры: {ext} — номер аккаунта, {state} — available/away/dnd."
-                               Foreground="Gray" FontSize="12" TextWrapping="Wrap" />
-                    <TextBox x:Name="PresenceHookUrlBox" local:Tr.Key="BoxPresenceHook.Header" Header="URL уведомления о статусе"
-                             PlaceholderText="http://атс:8091/prov/status?ext={ext}&amp;state={state}" />
-                    <PasswordBox x:Name="PresenceHookSecretBox" local:Tr.Key="BoxPresenceHookSecret.Header"
-                                 Header="Секрет подписи (пусто — без подписи)" PasswordRevealMode="Peek" />
+                    <TextBlock local:Tr.Key="LblWindowGroup.Text" Text="Окно и запуск" FontWeight="SemiBold" Margin="0,10,0,0" />
+                    <ToggleSwitch x:Name="AutostartSwitch" local:Tr.Key="SwAutostart.Header" Header="Запускать вместе с Windows" Toggled="OnAutostartToggled" />
+                    <ToggleSwitch x:Name="TraySwitch" local:Tr.Key="SwTray.Header" Header="Сворачивать в трей при закрытии" Toggled="OnTrayToggled" />
+                    <ToggleSwitch x:Name="StartHiddenSwitch" local:Tr.Key="SwStartHidden.Header" Header="Запускать свёрнутым в трей" Toggled="OnStartHiddenToggled" />
+                    <ToggleSwitch x:Name="IncomingFrontSwitch" local:Tr.Key="SwIncomingFront.Header" Header="Показывать окно поверх при входящем" Toggled="OnIncomingFrontToggled" />
+                    <ToggleSwitch x:Name="PublishPresenceSwitch" local:Tr.Key="SwPublishPresence.Header" Header="Публиковать мой статус (коллеги видят меня)" Toggled="OnPublishPresenceToggled" />
+                    <!-- Ставим «Отошёл», а НЕ «Не беспокоить»: последний заворачивает звонки
+                         в голосовую почту, и делать это без ведома человека нельзя. -->
+                    <ToggleSwitch x:Name="AwayOnLockSwitch" local:Tr.Key="SwAwayOnLock.Header" Header="Статус «Отошёл» при блокировке компьютера" Toggled="OnAwayOnLockToggled" />
+                    <ToggleSwitch x:Name="MissedToastSwitch" local:Tr.Key="SwMissedToast.Header" Header="Уведомлять о пропущенных звонках" Toggled="OnMissedToastToggled" />
 
-                    <TextBlock x:Name="ProvisioningStatus" Foreground="Gray" FontSize="12" TextWrapping="Wrap" />
-                    <TextBlock local:Tr.Key="LblRestartHint.Text" Text="Изменения применятся после перезапуска приложения."
-                               Foreground="Gray" FontSize="12" />
+<TextBlock local:Tr.Key="LblOperator.Text" Text="Работа поверх других окон" FontWeight="SemiBold" Margin="0,10,0,0" />
+                    <ToggleSwitch x:Name="HotkeysSwitch" local:Tr.Key="SwHotkeys.Header"
+                                  Header="Глобальные горячие клавиши"
+                                  Toggled="OnHotkeysToggled" />
+                    <!-- Назначение сочетаний. Кнопка переходит в режим захвата и ждёт нажатия:
+                         вводить «Ctrl+Alt+A» текстом пользователь не должен. Занятость
+                         проверяется сразу — иначе о конфликте узнают только после перезапуска. -->
+                    <!-- Обёртка нужна ради IsEnabled: у Grid его нет, а гасить сетку
+                         целиком при выключенных горячих клавишах — честнее, чем позволять
+                         назначать то, что не сработает. -->
+                    <ContentControl x:Name="HotkeyBox" HorizontalContentAlignment="Stretch" HorizontalAlignment="Stretch">
+                    <Grid Margin="0,4,0,0" ColumnSpacing="10" RowSpacing="6">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" /><RowDefinition Height="Auto" /><RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
+
+                        <TextBlock Grid.Row="0" Grid.Column="0" x:Name="HkAnswerLabel" local:Tr.Key="HkAnswer.Text"
+                                   Text="Ответить на звонок" VerticalAlignment="Center" />
+                        <Button Grid.Row="0" Grid.Column="1" x:Name="HkAnswerButton" MinWidth="150"
+                                Click="OnCaptureHotkey" Tag="Answer" />
+                        <Button Grid.Row="0" Grid.Column="2" x:Name="HkAnswerClear" local:Tr.Key="HkClear.Content"
+                                Content="Убрать" Click="OnClearHotkey" Tag="Answer" />
+
+                        <TextBlock Grid.Row="1" Grid.Column="0" local:Tr.Key="HkHangup.Text"
+                                   Text="Сбросить звонок" VerticalAlignment="Center" />
+                        <Button Grid.Row="1" Grid.Column="1" x:Name="HkHangupButton" MinWidth="150"
+                                Click="OnCaptureHotkey" Tag="Hangup" />
+                        <Button Grid.Row="1" Grid.Column="2" local:Tr.Key="HkClear.Content"
+                                Content="Убрать" Click="OnClearHotkey" Tag="Hangup" />
+
+                        <TextBlock Grid.Row="2" Grid.Column="0" local:Tr.Key="HkMute.Text"
+                                   Text="Выключить микрофон" VerticalAlignment="Center" />
+                        <Button Grid.Row="2" Grid.Column="1" x:Name="HkMuteButton" MinWidth="150"
+                                Click="OnCaptureHotkey" Tag="Mute" />
+                        <Button Grid.Row="2" Grid.Column="2" local:Tr.Key="HkClear.Content"
+                                Content="Убрать" Click="OnClearHotkey" Tag="Mute" />
+                    </Grid>
+                    </ContentControl>
+                    <TextBlock x:Name="HotkeysStatus" TextWrapping="Wrap" FontSize="12" Foreground="Gray" />
+                    <ToggleSwitch x:Name="MiniWindowSwitch" local:Tr.Key="SwMiniWindow.Header"
+                                  Header="Мини-окно звонка поверх всех окон" Toggled="OnMiniWindowToggled" />
                 </StackPanel>
             </ScrollViewer>
 
@@ -390,6 +532,14 @@
                             <TextBlock x:Name="AboutRuntimeText" Text="—" FontSize="14" FontWeight="SemiBold" />
                         </StackPanel>
                     </StackPanel>
+
+<!-- Обновления. Проверка фоновая, установка — только с согласия: оператор
+                         не должен получить перезапуск клиента посреди рабочего дня. -->
+                    <TextBlock local:Tr.Key="LblUpdates.Text" Text="Обновления" FontWeight="SemiBold" Margin="0,10,0,0" />
+                    <ToggleSwitch x:Name="UpdateCheckSwitch" local:Tr.Key="SwUpdateCheck.Header"
+                                  Header="Проверять обновления при запуске" Toggled="OnUpdateCheckToggled" />
+                    <Button x:Name="CheckUpdateButton" local:Tr.Key="BtnCheckUpdate.Content"
+                            Content="Проверить сейчас" HorizontalAlignment="Left" Click="OnCheckUpdateClick" />
 
                     <TextBlock local:Tr.Key="LblDiagnostics.Text" Text="Диагностика" FontSize="16" FontWeight="SemiBold" Margin="0,8,0,0" />
                     <ToggleSwitch x:Name="VerboseLogsSwitch" local:Tr.Key="SwVerbose.Header" Header="Подробные логи" Toggled="OnVerboseLogsToggled" />

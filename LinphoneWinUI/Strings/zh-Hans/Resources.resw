@@ -46,7 +46,7 @@
   <data name="TrayExit.Text" xml:space="preserve"><value>退出</value></data>
 
   <data name="NavAccount.Content" xml:space="preserve"><value>账户</value></data>
-  <data name="NavDevices.Content" xml:space="preserve"><value>通话与设备</value></data>
+  <data name="NavDevices.Content" xml:space="preserve"><value>音频与视频</value></data>
   <data name="NavContacts.Content" xml:space="preserve"><value>联系人</value></data>
   <data name="NavCodecs.Content" xml:space="preserve"><value>编解码与加密</value></data>
   <data name="NavAdvanced.Content" xml:space="preserve"><value>高级</value></data>
@@ -66,7 +66,7 @@
   <data name="BoxExpires.Header" xml:space="preserve"><value>注册超时（秒）</value></data>
   <data name="BtnDeleteAccount.Content" xml:space="preserve"><value>删除账户</value></data>
 
-  <data name="TitleDevices.Text" xml:space="preserve"><value>通话与设备</value></data>
+  <data name="TitleDevices.Text" xml:space="preserve"><value>音频与视频</value></data>
   <data name="SwEcho.Header" xml:space="preserve"><value>回声消除</value></data>
   <data name="ComboDtmf.Header" xml:space="preserve"><value>DTMF 传输方式</value></data>
   <data name="ComboMic.Header" xml:space="preserve"><value>麦克风</value></data>
@@ -92,7 +92,7 @@
   <data name="LblPhonebookDesc.Text" xml:space="preserve"><value>外部通讯录通过 HTTP 加载（PhoneBook → DirectoryEntry 格式的 XML）。</value></data>
   <data name="BoxPhonebookUrl.Header" xml:space="preserve"><value>通讯录 URL</value></data>
   <data name="BoxPhonebookUser.Header" xml:space="preserve"><value>用户名（可选）</value></data>
-  <data name="BoxPhonebookPass.Header" xml:space="preserve"><value>密码（留空则保持不变）</value></data>
+  <data name="BoxPhonebookPass.Header" xml:space="preserve"><value>密码</value></data>
 
   <data name="TitleCodecs.Text" xml:space="preserve"><value>编解码与加密</value></data>
   <data name="ComboEncryption.Header" xml:space="preserve"><value>媒体加密</value></data>
@@ -138,6 +138,9 @@
   <data name="St_TlsCaMissing" xml:space="preserve"><value>所选的 CA 文件已不存在——信任设置保持不变。</value></data>
   <data name="LblProvisioning.Text" xml:space="preserve"><value>远程配置</value></data>
   <data name="LblUpdates.Text" xml:space="preserve"><value>更新</value></data>
+  <data name="LblOperator.Text" xml:space="preserve"><value>在其他窗口之上工作</value></data>
+  <data name="SwHotkeys.Header" xml:space="preserve"><value>全局快捷键</value></data>
+  <data name="SwMiniWindow.Header" xml:space="preserve"><value>通话迷你窗口置于所有窗口之上</value></data>
   <data name="SwUpdateCheck.Header" xml:space="preserve"><value>启动时检查更新</value></data>
   <data name="BtnCheckUpdate.Content" xml:space="preserve"><value>立即检查</value></data>
   <data name="St_UpdateTitle" xml:space="preserve"><value>有新版本 {0}</value></data>
@@ -167,6 +170,8 @@
 
   <data name="St_NotConnected" xml:space="preserve"><value>未连接</value></data>
   <data name="St_Registering" xml:space="preserve"><value>注册中…</value></data>
+  <data name="St_CoreStarting" xml:space="preserve"><value>正在启动电话…</value></data>
+  <data name="St_CoreFailed" xml:space="preserve"><value>电话未能启动</value></data>
   <data name="St_Online" xml:space="preserve"><value>在线</value></data>
   <data name="St_Offline" xml:space="preserve"><value>离线</value></data>
   <data name="St_Missed" xml:space="preserve"><value>未接来电</value></data>
@@ -187,6 +192,7 @@
   <data name="St_Cancel" xml:space="preserve"><value>取消</value></data>
   <data name="St_NumberOrSip" xml:space="preserve"><value>号码或 SIP 地址</value></data>
   <data name="St_RingtoneDefault" xml:space="preserve"><value>（默认）</value></data>
+  <data name="St_RingtoneCustom" xml:space="preserve"><value>{0}（自定义）</value></data>
   <data name="St_RingtoneStop" xml:space="preserve"><value>停止</value></data>
   <data name="St_RingtoneNotFound" xml:space="preserve"><value>找不到铃声文件</value></data>
   <data name="LblDeviceCheck.Text" xml:space="preserve"><value>设备检查</value></data>
@@ -209,6 +215,8 @@
   <data name="St_LoadFailed" xml:space="preserve"><value>加载失败：{0}</value></data>
   <data name="St_LangNote" xml:space="preserve"><value>语言将在重启应用后更改。</value></data>
   <data name="St_NetApplied" xml:space="preserve"><value>网络设置已应用。</value></data>
+  <data name="St_TurnPassSaved" xml:space="preserve"><value>密码已保存。如需更换，请点击输入框并输入新密码。</value></data>
+  <data name="St_TurnPassMissing" xml:space="preserve"><value>未设置密码 — 输入密码后 TURN 才能工作。</value></data>
   <data name="St_NetApplyFailed" xml:space="preserve"><value>无法应用网络设置——SIP 内核不可用。</value></data>
   <data name="St_UrlCleared" xml:space="preserve"><value>URL 已清除。</value></data>
   <data name="St_SavedRestart" xml:space="preserve"><value>已保存。重启后生效。</value></data>
@@ -224,7 +232,7 @@
   <data name="St_ReasonForbidden" xml:space="preserve"><value>呼叫被禁止</value></data>
   <data name="SwTurn.Header" xml:space="preserve"><value>使用 TURN（通过 STUN 服务器中继）</value></data>
   <data name="BoxTurnUser.Header" xml:space="preserve"><value>TURN 用户名</value></data>
-  <data name="BoxTurnPass.Header" xml:space="preserve"><value>TURN 密码（留空则保持不变）</value></data>
+  <data name="BoxTurnPass.Header" xml:space="preserve"><value>TURN 密码</value></data>
   <data name="BoxTurnRealm.Header" xml:space="preserve"><value>TURN Realm（与服务器一致）</value></data>
   <data name="St_CallAction" xml:space="preserve"><value>呼叫</value></data>
   <data name="St_LastDialed" xml:space="preserve"><value>重拨上一个号码</value></data>
@@ -263,4 +271,115 @@
   <data name="St_Conference" xml:space="preserve"><value>电话会议</value></data>
   <data name="SwAutoRecord.Header" xml:space="preserve"><value>自动录制所有通话</value></data>
   <data name="SwClickToCall.Header" xml:space="preserve"><value>处理 tel: 和 sip: 链接（点击呼叫）</value></data>
+  <data name="St_AlreadyRunningTitle" xml:space="preserve"><value>L-Phone 已在运行</value></data>
+  <data name="St_AlreadyRunningText" xml:space="preserve"><value>L-Phone 已在该用户的另一个 Windows 会话中运行。&#10;&#10;两个实例共用同一配置文件并相互干扰：会覆盖设置并在 PBX 上重复注册。请在该会话中关闭 L-Phone 后重新启动。</value></data>
+  <data name="St_EnterNumber" xml:space="preserve"><value>请输入号码</value></data>
+  <data name="St_EncSrtp" xml:space="preserve"><value>通话已加密（{0}）</value></data>
+  <data name="St_EncSrtpWeak" xml:space="preserve"><value>通话已加密（SRTP），但密钥通过未受保护的信令传输：账号未使用 TLS，任何能看到网络流量的人都可以解密通话。请在账号设置中改用 TLS 传输。</value></data>
+  <data name="St_EncWas" xml:space="preserve"><value>该通话已加密（{0}）</value></data>
+  <data name="St_EncZrtpNote" xml:space="preserve"><value>未核对验证短语，因此无法确认对方身份。</value></data>
+  <data name="St_EncZrtpUnverified" xml:space="preserve"><value>通话已加密（ZRTP）。尚未核对验证短语，因此无法防止对方被冒充。</value></data>
+  <data name="MenuDnd.Text" xml:space="preserve"><value>请勿打扰</value></data>
+  <data name="St_On" xml:space="preserve"><value>开</value></data>
+  <data name="St_Off" xml:space="preserve"><value>关</value></data>
+  <data name="St_RecordFailed" xml:space="preserve"><value>无法开始录音</value></data>
+  <data name="SwIntercom.Header" xml:space="preserve"><value>按 PBX 请求自动应答（对讲、广播）</value></data>
+  <data name="HkAnswer.Text" xml:space="preserve"><value>接听来电</value></data>
+  <data name="HkHangup.Text" xml:space="preserve"><value>挂断</value></data>
+  <data name="HkMute.Text" xml:space="preserve"><value>静音麦克风</value></data>
+  <data name="HkClear.Content" xml:space="preserve"><value>清除</value></data>
+  <data name="Hk_NotSet" xml:space="preserve"><value>未设置</value></data>
+  <data name="Hk_PressCombo" xml:space="preserve"><value>请按下组合键…</value></data>
+  <data name="Hk_CaptureHint" xml:space="preserve"><value>请按下包含 Ctrl、Alt 或 Shift 的组合键。点击别处可取消。</value></data>
+  <data name="Hk_NeedModifier" xml:space="preserve"><value>必须包含修饰键 Ctrl、Alt 或 Shift。单个按键会在所有程序中失效。</value></data>
+  <data name="Hk_Taken" xml:space="preserve"><value>组合键 {0} 已被其他程序占用，请另选一个。</value></data>
+  <data name="Hk_Duplicate" xml:space="preserve"><value>组合键 {0} 已分配给“{1}”。</value></data>
+  <data name="Hk_Applied" xml:space="preserve"><value>快捷键已生效。</value></data>
+  <data name="Hk_TakenList" xml:space="preserve"><value>无法占用：{0} —— 已被其他程序持有。</value></data>
+  <data name="HistorySearch.PlaceholderText" xml:space="preserve"><value>按姓名或号码搜索</value></data>
+  <data name="HfAll.Text" xml:space="preserve"><value>全部</value></data>
+  <data name="HfMissed.Text" xml:space="preserve"><value>未接</value></data>
+  <data name="HfIn.Text" xml:space="preserve"><value>来电</value></data>
+  <data name="HfOut.Text" xml:space="preserve"><value>去电</value></data>
+  <data name="HistoryNoMatchText.Text" xml:space="preserve"><value>未找到任何记录</value></data>
+  <data name="LblConnect.Text" xml:space="preserve"><value>接通</value></data>
+  <data name="LblTransferWhom.Text" xml:space="preserve"><value>转接通话</value></data>
+  <data name="TransferInput.PlaceholderText" xml:space="preserve"><value>号码或姓名</value></data>
+  <data name="BtnTransferDo.Content" xml:space="preserve"><value>转接</value></data>
+  <data name="BtnTransferAsk.Content" xml:space="preserve"><value>先询问</value></data>
+  <data name="St_TransferWhom" xml:space="preserve"><value>转接：{0}</value></data>
+  <data name="BtnCancel.Content" xml:space="preserve"><value>取消</value></data>
+  <data name="St_Yesterday" xml:space="preserve"><value>昨天</value></data>
+  <data name="LblPark.Text" xml:space="preserve"><value>寄存</value></data>
+  <data name="LblParking.Text" xml:space="preserve"><value>寄存中的通话</value></data>
+  <data name="Park_Free" xml:space="preserve"><value>空闲</value></data>
+  <data name="Park_Busy" xml:space="preserve"><value>占用</value></data>
+  <data name="St_ParkFailed" xml:space="preserve"><value>无法寄存通话</value></data>
+  <data name="LblParkExt.Text" xml:space="preserve"><value>寄存号码</value></data>
+  <data name="LblParkSlots.Text" xml:space="preserve"><value>寄存位</value></data>
+  <data name="SwParking.Header" xml:space="preserve"><value>显示寄存通话</value></data>
+  <data name="LblParkingGroup.Text" xml:space="preserve"><value>通话寄存</value></data>
+  <data name="St_ParkSlotsOk" xml:space="preserve"><value>寄存位：{0}（{1}…{2}）</value></data>
+  <data name="St_ParkSlotsBad" xml:space="preserve"><value>无法解析范围 —— 寄存面板不会显示</value></data>
+  <data name="St_ParkDone" xml:space="preserve"><value>通话已寄存</value></data>
+  <data name="Q_Loss" xml:space="preserve"><value>丢包</value></data>
+  <data name="Q_Rtt" xml:space="preserve"><value>延迟</value></data>
+  <data name="Q_Jitter" xml:space="preserve"><value>抖动</value></data>
+  <data name="Q_Rating" xml:space="preserve"><value>评分</value></data>
+  <data name="Q_Ms" xml:space="preserve"><value>毫秒</value></data>
+  <data name="LblQuality.Text" xml:space="preserve"><value>通话质量</value></data>
+  <data name="St_DragTransfer" xml:space="preserve"><value>转接给 {0}</value></data>
+  <data name="St_DragAsk" xml:space="preserve"><value>先询问 {0}</value></data>
+  <data name="LblApiGroup.Text" xml:space="preserve"><value>CRM 集成</value></data>
+  <data name="SwApi.Header" xml:space="preserve"><value>本地 HTTP API（127.0.0.1）</value></data>
+  <data name="LblApiPort.Text" xml:space="preserve"><value>端口</value></data>
+  <data name="LblApiToken.Text" xml:space="preserve"><value>令牌</value></data>
+  <data name="BtnApiNewToken.Content" xml:space="preserve"><value>重新生成</value></data>
+  <data name="BtnApiCopy.Content" xml:space="preserve"><value>复制示例</value></data>
+  <data name="St_ApiCopied" xml:space="preserve"><value>链接已复制到剪贴板</value></data>
+  <data name="St_ApiOff" xml:space="preserve"><value>已关闭。开启后 CRM 可用本机拨号。</value></data>
+  <data name="LblCallHook.Text" xml:space="preserve"><value>客户卡片链接</value></data>
+  <data name="LblCallHookHint.Text" xml:space="preserve"><value>占位符：{number} {name} {event} {direction} {duration} {callid}</value></data>
+  <data name="SwCallHookBrowser.Header" xml:space="preserve"><value>在浏览器中打开（否则静默请求）</value></data>
+  <data name="SwCallHookIncoming.Header" xml:space="preserve"><value>仅来电</value></data>
+  <data name="St_HookBadUrl" xml:space="preserve"><value>只能打开 http:// 或 https://</value></data>
+  <data name="St_AudioDeviceSwitched" xml:space="preserve"><value>音频设备已更改 —— 已切换</value></data>
+  <data name="Num_Work" xml:space="preserve"><value>办公</value></data>
+  <data name="Num_Mobile" xml:space="preserve"><value>手机</value></data>
+  <data name="Num_Home" xml:space="preserve"><value>住宅</value></data>
+  <data name="Num_Ext" xml:space="preserve"><value>分机</value></data>
+  <data name="Num_Other" xml:space="preserve"><value>其他</value></data>
+  <data name="Grp_All" xml:space="preserve"><value>所有分组</value></data>
+  <data name="Num_Numbered" xml:space="preserve"><value>号码 {0}</value></data>
+  <data name="LblTransferConfirm.Text" xml:space="preserve"><value>确认转接？</value></data>
+  <data name="LblWhom.Text" xml:space="preserve"><value>来电：</value></data>
+  <data name="LblToWhom.Text" xml:space="preserve"><value>转给：</value></data>
+  <data name="BtnNo.Content" xml:space="preserve"><value>否</value></data>
+  <data name="LblAttendedHint.Text" xml:space="preserve"><value>通话后请按“接通”。红色按钮会把来电退回给您。</value></data>
+  <data name="BtnTransferDo.Text" xml:space="preserve"><value>转接</value></data>
+  <data name="BtnTransferAsk.Text" xml:space="preserve"><value>先咨询</value></data>
+  <data name="LblBackToMe.Text" xml:space="preserve"><value>退回给我</value></data>
+  <data name="Xfer_Favorites" xml:space="preserve"><value>收藏</value></data>
+  <data name="Xfer_Found" xml:space="preserve"><value>通讯录搜索结果</value></data>
+  <data name="NavCalls.Content" xml:space="preserve"><value>通话</value></data>
+  <data name="NavIntegrations.Content" xml:space="preserve"><value>集成</value></data>
+  <data name="NavNetwork.Content" xml:space="preserve"><value>网络</value></data>
+  <data name="NavApp.Content" xml:space="preserve"><value>应用</value></data>
+  <data name="TitleCalls.Text" xml:space="preserve"><value>通话</value></data>
+  <data name="TitleIntegrations.Text" xml:space="preserve"><value>集成</value></data>
+  <data name="TitleNetwork.Text" xml:space="preserve"><value>网络</value></data>
+  <data name="TitleApp.Text" xml:space="preserve"><value>应用</value></data>
+  <data name="LblIncomingGroup.Text" xml:space="preserve"><value>来电</value></data>
+  <data name="LblRecordGroup.Text" xml:space="preserve"><value>通话录音</value></data>
+  <data name="LblWindowGroup.Text" xml:space="preserve"><value>窗口与启动</value></data>
+  <data name="BtnCheckBook.Content" xml:space="preserve"><value>检查</value></data>
+  <data name="St_RedialGaveUp" xml:space="preserve"><value>对方占线 — 自动重拨已停止</value></data>
+  <data name="St_CoreBusy" xml:space="preserve"><value>电话无响应 — 状态未知</value></data>
+  <data name="St_ConferenceFailed" xml:space="preserve"><value>无法创建会议</value></data>
+  <data name="St_MissedCall" xml:space="preserve"><value>未接来电</value></data>
+  <data name="St_CallBack" xml:space="preserve"><value>回拨</value></data>
+  <data name="St_LineRinging" xml:space="preserve"><value>线路正在振铃</value></data>
+  <data name="SwAwayOnLock.Header" xml:space="preserve"><value>锁定电脑时设为「离开」</value></data>
+  <data name="SwMissedToast.Header" xml:space="preserve"><value>未接来电通知</value></data>
+  <data name="St_UnknownCaller" xml:space="preserve"><value>未知来电</value></data>
 </root>

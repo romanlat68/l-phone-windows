@@ -105,4 +105,34 @@ public class ExternalDialTargetTests
     [Fact]
     public void IsTrustedDialTarget_NoAccounts_ExternalAddressNotTrusted() =>
         Assert.False(PhoneNumberUtils.IsTrustedDialTarget("sip:1001@pbx.example.com", new string[0]));
+
+    // ------------------------------------------------------------------
+    // Можно ли перезвонить: скрытый номер приходит НЕ пустым
+    // ------------------------------------------------------------------
+    // Найдено живым звонком: originate без caller ID дал
+    // «Anonymous» <sip:anonymous@anonymous.invalid> (так предписывает RFC 3323), и наивная
+    // проверка «строка не пуста» принимала это за номер — уведомление о пропущенном
+    // предлагало «Перезвонить» на «anonymous». Кнопка, которая заведомо не сработает,
+    // хуже отсутствующей.
+
+    [Theory]
+    [InlineData("sip:377@sip.example.com")]
+    [InlineData("377")]
+    [InlineData("+79161234567")]
+    [InlineData("*97")]
+    [InlineData("\"Иванов\" <sip:376@pbx>")]
+    public void Callable_RealNumbers(string address) =>
+        Assert.True(PhoneNumberUtils.IsCallable(address));
+
+    [Theory]
+    [InlineData("\"Anonymous\" <sip:anonymous@anonymous.invalid>")]
+    [InlineData("sip:anonymous@anonymous.invalid")]
+    [InlineData("anonymous")]
+    [InlineData("sip:unknown@pbx")]
+    [InlineData("unavailable")]
+    [InlineData("restricted")]
+    [InlineData("")]
+    [InlineData(null)]
+    public void NotCallable_HiddenOrUnknown(string? address) =>
+        Assert.False(PhoneNumberUtils.IsCallable(address));
 }

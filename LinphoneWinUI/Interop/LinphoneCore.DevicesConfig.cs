@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.IO;
 using static LinphoneWinUI.Interop.NativeMethods;
 
@@ -208,6 +209,39 @@ internal sealed partial class LinphoneCore
     // псевдо-сервером "presencehook" (в rc открытым текстом не попадает). ---
     private const string HookCredServer = "presencehook";
     private const string HookCredUser = "hook";
+
+    // --- Токен локального API: тем же путём, что остальные секреты. ---
+    // Он давал право звонить с телефона сотрудника, а лежал в linphonerc открытым текстом —
+    // единственный секрет приложения вне DPAPI. Каталог профиля закрыт ACL, но эта защита
+    // отваливается ровно там, где файл покидает машину: резервная копия, перенаправленная
+    // папка, диагностический архив для поддержки. DPAPI переживает всё это — ключ привязан
+    // к учётной записи Windows.
+    private const string ApiCredServer = "localapi";
+    private const string ApiCredUser = "token";
+
+    /// <summary>Токен локального API ("" = не задан).</summary>
+    public string GetApiToken()
+    {
+        string t = LoadPasswordLocal(ApiCredUser, ApiCredServer);
+        if (t.Length > 0) return t;
+        // Миграция: токен из старых версий лежит в rc открытым текстом. Переносим в DPAPI
+        // и стираем из конфига — иначе он останется там навсегда.
+        string legacy = GetAppString("api_token", "");
+        if (legacy.Length == 0) return "";
+        SavePasswordLocal(ApiCredUser, ApiCredServer, legacy);
+        SetAppString("api_token", "");
+        Log?.Invoke("Токен локального API перенесён из конфигурации в защищённое хранилище");
+        return legacy;
+    }
+
+    /// <summary>Задать токен; пустой — убрать.</summary>
+    public void SetApiToken(string token)
+    {
+        token = (token ?? "").Trim();
+        if (token.Length == 0) RemovePasswordLocal(ApiCredUser, ApiCredServer);
+        else SavePasswordLocal(ApiCredUser, ApiCredServer, token);
+        SetAppString("api_token", "");   // в rc его быть не должно ни при каких обстоятельствах
+    }
 
     /// <summary>Секрет подписи хука статуса ("" = подпись не используется).</summary>
     public string GetPresenceHookSecret() => LoadPasswordLocal(HookCredUser, HookCredServer);
@@ -429,6 +463,25 @@ internal sealed partial class LinphoneCore
     /// поднят на своей АТС), «Применить» стирало учётку регистрации аккаунта — телефон
     /// переставал регистрироваться. Признак «наша»: у TURN-записи нет домена, у аккаунтной
     /// он всегда есть (см. [auth_info_N] domain= в linphonerc).</summary>
+    /// <summary>Есть ли сохранённый пароль TURN для этого логина. Само значение вернуть нельзя —
+    /// при заданном realm liblinphone хранит только хеш ha1, — но факт наличия сказать можно,
+    /// и это ровно то, чего не хватало: пустое поле пароля выглядит одинаково и когда пароль
+    /// сохранён, и когда его нет вовсе.</summary>
+    public bool HasTurnPassword(string login)
+    {
+        if (_core == IntPtr.Zero || string.IsNullOrEmpty(login)) return false;
+        for (IntPtr it = linphone_core_get_auth_info_list(_core); it != IntPtr.Zero; it = bctbx_list_next(it))
+        {
+            IntPtr ai = bctbx_list_get_data(it);
+            if (ai == IntPtr.Zero) continue;
+            if (!string.Equals(PtrToUtf8(linphone_auth_info_get_username(ai)), login, StringComparison.Ordinal)) continue;
+            // Записи аккаунтов отличаются заполненным domain — тот же признак, что при удалении.
+            if ((PtrToUtf8(linphone_auth_info_get_domain(ai)) ?? "").Length > 0) continue;
+            return true;
+        }
+        return false;
+    }
+
     private void RemoveTurnAuthInfo(string login)
     {
         if (_core == IntPtr.Zero || string.IsNullOrEmpty(login)) return;
@@ -510,6 +563,10 @@ internal sealed partial class LinphoneCore
     public void SetInputDevice(string id) => ApplyDevice(id, input: true);
     public void SetOutputDevice(string id) => ApplyDevice(id, input: false);
 
+    // Состав устройств на прошлом перечислении (отдельно для микрофонов и динамиков) —
+    // чтобы не повторять одну и ту же строку журнала.
+    private readonly Dictionary<bool, string> _lastDeviceSignature = new();
+
     private List<AudioDeviceInfo> EnumerateDevices(bool record)
     {
         var matching = new List<AudioDeviceInfo>();
@@ -540,7 +597,17 @@ internal sealed partial class LinphoneCore
 
         // Если по флагам capabilities ничего не подошло, но устройства есть — показываем все.
         var result = matching.Count > 0 ? matching : all;
-        Log?.Invoke($"Аудио ({(record ? "микрофон" : "динамик")}): всего {all.Count}, по флагам {matching.Count}{(extended ? " (extended)" : "")}");
+
+        // Пишем в журнал ТОЛЬКО когда состав изменился. Раньше строка уходила на каждое
+        // перечисление, и опрос по таймеру залил лог тысячами одинаковых записей —
+        // за один прогон набралось почти пять тысяч строк, из-за чего в журнале стало
+        // невозможно найти ничего другого.
+        string signature = string.Join(",", result.Select(d => d.Id));
+        if (!_lastDeviceSignature.TryGetValue(record, out string? prev) || prev != signature)
+        {
+            _lastDeviceSignature[record] = signature;
+            Log?.Invoke($"Аудио ({(record ? "микрофон" : "динамик")}): всего {all.Count}, по флагам {matching.Count}{(extended ? " (extended)" : "")}");
+        }
         return result;
     }
 

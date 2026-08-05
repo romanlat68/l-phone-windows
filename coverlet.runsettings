@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Что считаем покрытым кодом.
+
+  Мерить покрытие по ВСЕМУ проекту бессмысленно: больше половины строк — это разметка окон
+  (*.xaml.cs), обёртки над liblinphone (P/Invoke, где каждая строка — вызов в нативную
+  библиотеку) и сгенерированный SDK-враппер на 40 тысяч строк. Юнит-тест их не исполняет
+  ни при каких условиях, и общая цифра получается «7 %», из которой не следует ничего.
+
+  Поэтому считаем по тому, что тестируется в принципе: чистая логика и ViewModel.
+  Такую цифру можно удерживать и по ней видно, где появился непроверенный код.
+-->
+<RunSettings>
+  <DataCollectionRunSettings>
+    <DataCollectors>
+      <DataCollector friendlyName="XPlat code coverage">
+        <Configuration>
+          <Format>cobertura</Format>
+          <ExcludeByFile>
+            <!-- Разметка и code-behind окон: проверяется глазами и UI-автоматикой -->
+            **/*.xaml.cs,
+            **/*.g.cs,
+            **/*.g.i.cs,
+            <!-- Обёртки над нативной библиотекой: каждая строка — вызов в liblinphone -->
+            **/Interop/NativeMethods.cs,
+            **/Interop/LinphoneCore*.cs,
+            **/Interop/LinphoneServiceFacade.cs,
+            **/share/linphonecs/**,
+            <!-- Точка входа и оконная плотничная работа -->
+            **/Program.cs,
+            **/MinSizeHelper.cs,
+            **/VideoWindowHost.cs
+          </ExcludeByFile>
+          <ExcludeByAttribute>Obsolete,GeneratedCodeAttribute,CompilerGeneratedAttribute</ExcludeByAttribute>
+          <SkipAutoProps>true</SkipAutoProps>
+        </Configuration>
+      </DataCollector>
+    </DataCollectors>
+  </DataCollectionRunSettings>
+</RunSettings>

@@ -56,6 +56,30 @@ public static class DialogInfoParser
         catch (System.Xml.XmlException) { return DialogState.Unknown; }
     }
 
+    /// <summary>Кто на том конце диалога: user-часть из &lt;remote&gt;&lt;identity&gt;.
+    /// Нужно для парковки — плитка слота обязана показывать, ЧЕЙ звонок там ждёт, иначе
+    /// оператор снимает вслепую. Пусто, если АТС не прислала: показывать «занят» честнее,
+    /// чем подставлять номер самого слота и выдавать его за звонящего.</summary>
+    public static string RemoteIdentity(string? xml)
+    {
+        if (string.IsNullOrWhiteSpace(xml)) return "";
+        try
+        {
+            var root = XDocument.Parse(xml).Root;
+            if (root == null) return "";
+            string id = root.Elements().Where(e => e.Name.LocalName == "dialog")
+                .SelectMany(d => d.Elements().Where(e => e.Name.LocalName == "remote"))
+                .SelectMany(r => r.Elements().Where(e => e.Name.LocalName == "identity"))
+                .Select(e => (e.Value ?? "").Trim())
+                .FirstOrDefault(v => v.Length > 0) ?? "";
+            // Иногда полезнее display-name («Иван Петров»), но его в identity нет —
+            // там URI. Берём user-часть: номер оператор узнаёт, длинный SIP-URI в плитку
+            // всё равно не влезет.
+            return PhoneNumberUtils.SipUser(id);
+        }
+        catch (System.Xml.XmlException) { return ""; }
+    }
+
     /// <summary>Чей это диалог: user-часть из атрибута entity (sip:376@pbx → 376).
     /// NOTIFY приходят по разным подпискам в один колбэк, и без этого их не различить.</summary>
     public static string Entity(string? xml)

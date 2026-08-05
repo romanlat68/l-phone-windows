@@ -6,8 +6,17 @@ namespace LinphoneWinUI.Interop;
 /// <summary>
 /// Тонкий P/Invoke-слой над C API liblinphone (SDK 5.4.x, liblinphone.dll): Core,
 /// регистрация, звонки, чат, presence, устройства, кодеки, конфигурация.
-/// Строки C API — UTF-8 (LPUTF8Str). bool_t передаём как int (0/1) — безопасно
-/// независимо от фактической ширины bool_t в bctoolbox.
+///
+/// Строки C API — UTF-8 (LPUTF8Str).
+///
+/// <para><b>bool_t.</b> В ПАРАМЕТРАХ передаём как int (0/1) — это безопасно: вызываемая
+/// функция читает только младший байт регистра. А вот ВОЗВРАЩАТЬ bool_t как int НЕЛЬЗЯ.
+/// В этой сборке SDK bool_t занимает один байт (официальная обёртка объявляет такие функции
+/// возвращающими <c>char</c>), а по соглашению вызовов x64 старшие биты RAX после возврата
+/// байта не определены — сравнение <c>!= 0</c> может дать «истина» на месте лжи. Держалось это
+/// на удаче компилятора, пока интеграционный тест не поймал первый промах:
+/// <c>linphone_nat_policy_turn_enabled</c> отдавал «TURN включён» при выключенном TURN.
+/// Поэтому все булевы возвраты объявлены как <c>byte</c>.</para>
 /// </summary>
 internal static class NativeMethods
 {
@@ -291,8 +300,22 @@ internal static class NativeMethods
     [DllImport(Lib, CallingConvention = Cdecl)]
     public static extern void linphone_core_set_network_reachable(IntPtr core, int reachable);
 
+    // Периодический keep-alive (для UDP — CRLF-пакет, для TCP/TLS — поддержание соединения).
+    // Без него NAT закрывает пробитый порт раньше, чем истечёт регистрация, и входящие
+    // перестают доходить: исходящие идут, а на вас дозвониться нельзя (см. LinphoneCore.Start).
+    [DllImport(Lib, CallingConvention = Cdecl)]
+    public static extern void linphone_core_enable_keep_alive(IntPtr core, int enable);
+
+    [DllImport(Lib, CallingConvention = Cdecl)]
+    public static extern void linphone_core_set_keep_alive_period(IntPtr core, uint periodMs);
+
     [DllImport(Lib, CallingConvention = Cdecl)]
     public static extern IntPtr linphone_core_get_default_account(IntPtr core);
+
+    /// <summary>Аккаунт, через который идёт звонок (const — не освобождать). Нужен, чтобы
+    /// узнать транспорт сигнализации: от него зависит, чего стоит SRTP-SDES (см. CurrentCallSecurity).</summary>
+    [DllImport(Lib, CallingConvention = Cdecl)]
+    public static extern IntPtr linphone_call_get_account(IntPtr call);
 
     [DllImport(Lib, CallingConvention = Cdecl)]
     public static extern IntPtr linphone_account_get_params(IntPtr account);
@@ -415,19 +438,19 @@ internal static class NativeMethods
     public static extern void linphone_core_enable_echo_cancellation(IntPtr core, int enable);
 
     [DllImport(Lib, CallingConvention = Cdecl)]
-    public static extern int linphone_core_echo_cancellation_enabled(IntPtr core);
+    public static extern byte linphone_core_echo_cancellation_enabled(IntPtr core);
 
     [DllImport(Lib, CallingConvention = Cdecl)]
     public static extern void linphone_core_set_use_rfc2833_for_dtmf(IntPtr core, int useRfc2833);
 
     [DllImport(Lib, CallingConvention = Cdecl)]
-    public static extern int linphone_core_get_use_rfc2833_for_dtmf(IntPtr core);
+    public static extern byte linphone_core_get_use_rfc2833_for_dtmf(IntPtr core);
 
     [DllImport(Lib, CallingConvention = Cdecl)]
     public static extern void linphone_core_set_use_info_for_dtmf(IntPtr core, int useInfo);
 
     [DllImport(Lib, CallingConvention = Cdecl)]
-    public static extern int linphone_core_get_use_info_for_dtmf(IntPtr core);
+    public static extern byte linphone_core_get_use_info_for_dtmf(IntPtr core);
 
     [DllImport(Lib, CallingConvention = Cdecl)]
     public static extern IntPtr linphone_core_get_audio_devices(IntPtr core);
@@ -455,6 +478,10 @@ internal static class NativeMethods
     [DllImport(Lib, CallingConvention = Cdecl)]
     public static extern int linphone_core_get_media_encryption(IntPtr core);
 
+    /// <summary>Собран ли данный режим шифрования в этой сборке SDK (bool как int).</summary>
+    [DllImport(Lib, CallingConvention = Cdecl)]
+    public static extern byte linphone_core_media_encryption_supported(IntPtr core, int encryption);
+
     // --- Кодеки (payload types) ---
     [DllImport(Lib, CallingConvention = Cdecl)]
     public static extern IntPtr linphone_core_get_audio_payload_types(IntPtr core);
@@ -469,7 +496,7 @@ internal static class NativeMethods
     public static extern int linphone_payload_type_get_clock_rate(IntPtr payloadType);
 
     [DllImport(Lib, CallingConvention = Cdecl)]
-    public static extern int linphone_payload_type_enabled(IntPtr payloadType);
+    public static extern byte linphone_payload_type_enabled(IntPtr payloadType);
 
     [DllImport(Lib, CallingConvention = Cdecl)]
     public static extern int linphone_payload_type_enable(IntPtr payloadType, int enabled);
@@ -502,6 +529,16 @@ internal static class NativeMethods
         [MarshalAs(UnmanagedType.LPUTF8Str)] string section,
         [MarshalAs(UnmanagedType.LPUTF8Str)] string key,
         [MarshalAs(UnmanagedType.LPUTF8Str)] string? value);
+
+    /// <summary>Целое значение в конфиге. Нужно там, где прямого API в сборке SDK нет:
+    /// период keep-alive liblinphone хранит в [sip] keepalive_period и читает оттуда сам
+    /// (см. LinphoneCore.ApplyKeepAlivePeriod — set_keep_alive_period не экспортирован
+    /// в 5.4.122).</summary>
+    [DllImport(Lib, CallingConvention = Cdecl)]
+    public static extern void linphone_config_set_int(IntPtr config,
+        [MarshalAs(UnmanagedType.LPUTF8Str)] string section,
+        [MarshalAs(UnmanagedType.LPUTF8Str)] string key,
+        int value);
 
     // --- Рингтон ---
     [DllImport(Lib, CallingConvention = Cdecl)]
@@ -624,14 +661,14 @@ internal static class NativeMethods
     public static extern void linphone_nat_policy_enable_ice(IntPtr policy, int enable);
 
     [DllImport(Lib, CallingConvention = Cdecl)]
-    public static extern int linphone_nat_policy_ice_enabled(IntPtr policy);
+    public static extern byte linphone_nat_policy_ice_enabled(IntPtr policy);
 
     // --- TURN (релей медиа, когда прямой путь и STUN не работают) ---
     [DllImport(Lib, CallingConvention = Cdecl)]
     public static extern void linphone_nat_policy_enable_turn(IntPtr policy, int enable);
 
     [DllImport(Lib, CallingConvention = Cdecl)]
-    public static extern int linphone_nat_policy_turn_enabled(IntPtr policy);
+    public static extern byte linphone_nat_policy_turn_enabled(IntPtr policy);
 
     [DllImport(Lib, CallingConvention = Cdecl)]
     public static extern void linphone_nat_policy_set_stun_server_username(IntPtr policy, [MarshalAs(UnmanagedType.LPUTF8Str)] string? username);
@@ -697,6 +734,14 @@ internal static class NativeMethods
     [DllImport(Lib, CallingConvention = Cdecl)]
     public static extern int linphone_call_log_get_status(IntPtr callLog);
 
+    // Наша пометка к записи журнала (см. CallLogTag): ядро хранит её вместе с записью.
+    [DllImport(Lib, CallingConvention = Cdecl)]
+    public static extern IntPtr linphone_call_log_get_ref_key(IntPtr callLog);
+
+    [DllImport(Lib, CallingConvention = Cdecl)]
+    public static extern void linphone_call_log_set_ref_key(IntPtr callLog,
+        [MarshalAs(UnmanagedType.LPUTF8Str)] string refKey);
+
     // ---------------------------------------------------------------------
     // Видео
     // ---------------------------------------------------------------------
@@ -743,11 +788,88 @@ internal static class NativeMethods
     [DllImport(Lib, CallingConvention = Cdecl)]
     public static extern IntPtr linphone_call_get_current_params(IntPtr call);
 
+    // --- Диагностика звонка: Call-ID, использованный кодек, качество линии ---
+    // Нужны для итоговой строки в журнале. Без них разбор жалобы «плохо слышно» начинался
+    // с переписки, а два параллельных звонка в логе было не различить вовсе.
+
+    /// <summary>Параметры, ПРЕДЛОЖЕННЫЕ другой стороной (const — НЕ освобождать).
+    /// Только из них видны произвольные SIP-заголовки входящего INVITE.</summary>
+    [DllImport(Lib, CallingConvention = Cdecl)]
+    public static extern IntPtr linphone_call_get_remote_params(IntPtr call);
+
+    /// <summary>Произвольный SIP-заголовок (const — НЕ освобождать), либо NULL.</summary>
+    [DllImport(Lib, CallingConvention = Cdecl)]
+    public static extern IntPtr linphone_call_params_get_custom_header(
+        IntPtr callParams, [MarshalAs(UnmanagedType.LPUTF8Str)] string headerName);
+
+    /// <summary>Журнальная запись звонка (const — НЕ освобождать).</summary>
+    [DllImport(Lib, CallingConvention = Cdecl)]
+    public static extern IntPtr linphone_call_get_call_log(IntPtr call);
+
+    /// <summary>Call-ID из SIP — тот же идентификатор, что в трассах и в CDR на стороне АТС.</summary>
+    [DllImport(Lib, CallingConvention = Cdecl)]
+    public static extern IntPtr linphone_call_log_get_call_id(IntPtr callLog);
+
+    /// <summary>Фактически согласованный аудиокодек (const — НЕ освобождать).</summary>
+    [DllImport(Lib, CallingConvention = Cdecl)]
+    public static extern IntPtr linphone_call_params_get_used_audio_payload_type(IntPtr callParams);
+
+    /// <summary>КОПИЯ статистики аудиопотока — владение переходит нам, нужен unref.</summary>
+    [DllImport(Lib, CallingConvention = Cdecl)]
+    public static extern IntPtr linphone_call_get_audio_stats(IntPtr call);
+
+    [DllImport(Lib, CallingConvention = Cdecl)]
+    public static extern void linphone_call_stats_unref(IntPtr stats);
+
+    /// <summary>Доля потерянных пакетов у ПРИНИМАЮЩЕЙ стороны, проценты.</summary>
+    [DllImport(Lib, CallingConvention = Cdecl)]
+    public static extern float linphone_call_stats_get_receiver_loss_rate(IntPtr stats);
+
+    /// <summary>Круговая задержка, миллисекунды (0 — RTCP ещё не дал оценку).</summary>
+    [DllImport(Lib, CallingConvention = Cdecl)]
+    public static extern float linphone_call_stats_get_round_trip_delay(IntPtr stats);
+
+    /// <summary>Громкость НАШЕГО микрофона в текущем звонке, dBm0 (0 — максимум).</summary>
+    [DllImport(Lib, CallingConvention = Cdecl)]
+    public static extern float linphone_call_get_record_volume(IntPtr call);
+
+    /// <summary>Громкость того, что мы слышим от собеседника, dBm0.</summary>
+    [DllImport(Lib, CallingConvention = Cdecl)]
+    public static extern float linphone_call_get_play_volume(IntPtr call);
+
+    /// <summary>Разброс времени прихода пакетов (джиттер), СЕКУНДЫ.</summary>
+    [DllImport(Lib, CallingConvention = Cdecl)]
+    public static extern float linphone_call_stats_get_receiver_interarrival_jitter(IntPtr stats);
+
+    /// <summary>Оценка качества разговора прямо сейчас: 0..5, отрицательное — оценки пока нет.
+    /// Считает сам liblinphone по RTCP; своя формула была бы хуже и разъезжалась бы с логом.</summary>
+    [DllImport(Lib, CallingConvention = Cdecl)]
+    public static extern float linphone_call_get_current_quality(IntPtr call);
+
+    /// <summary>Конференция, в которую входит звонок (const — НЕ освобождать), либо Zero.</summary>
+    [DllImport(Lib, CallingConvention = Cdecl)]
+    public static extern IntPtr linphone_call_get_conference(IntPtr call);
+
+    // Запись КОНФЕРЕНЦИИ целиком: у неё свой микс, и рекордеры отдельных линий в её медиаграф
+    // не попадают — linphone_call_start_recording на участнике молча не создаёт файла.
+    [DllImport(Lib, CallingConvention = Cdecl)]
+    public static extern int linphone_conference_start_recording(
+        IntPtr conference, [MarshalAs(UnmanagedType.LPUTF8Str)] string path);
+
+    [DllImport(Lib, CallingConvention = Cdecl)]
+    public static extern int linphone_conference_stop_recording(IntPtr conference);
+
+    /// <summary>Шифрование медиа ФАКТИЧЕСКОГО потока (у current_params — то, о чём стороны
+    /// договорились, а не то, что мы предложили). Именно это показываем пользователю: настройка
+    /// «SRTP включён» ничего не говорит о конкретном разговоре — вторая сторона могла не уметь.</summary>
+    [DllImport(Lib, CallingConvention = Cdecl)]
+    public static extern int linphone_call_params_get_media_encryption(IntPtr callParams);
+
     [DllImport(Lib, CallingConvention = Cdecl)]
     public static extern void linphone_call_params_enable_video(IntPtr callParams, int enable);
 
     [DllImport(Lib, CallingConvention = Cdecl)]
-    public static extern int linphone_call_params_video_enabled(IntPtr callParams);
+    public static extern byte linphone_call_params_video_enabled(IntPtr callParams);
 
     [DllImport(Lib, CallingConvention = Cdecl)]
     public static extern int linphone_call_params_get_video_direction(IntPtr callParams);
@@ -764,6 +886,10 @@ internal static class NativeMethods
     [DllImport(Lib, CallingConvention = Cdecl)]
     public static extern void linphone_core_cbs_set_registration_state_changed(
         IntPtr cbs, RegistrationStateChangedCb cb);
+
+    [DllImport(Lib, CallingConvention = Cdecl)]
+    public static extern void linphone_core_cbs_set_audio_devices_list_updated(
+        IntPtr cbs, AudioDevicesListUpdatedCb cb);
 
     [DllImport(Lib, CallingConvention = Cdecl)]
     public static extern void linphone_core_cbs_set_call_state_changed(
@@ -783,7 +909,7 @@ internal static class NativeMethods
 
     // bool_t: есть ли ожидающие сообщения.
     [DllImport(Lib, CallingConvention = Cdecl)]
-    public static extern int linphone_message_waiting_indication_has_message_waiting(IntPtr mwi);
+    public static extern byte linphone_message_waiting_indication_has_message_waiting(IntPtr mwi);
 
     // Суммарное число новых/старых сообщений по всем summary.
     [DllImport(Lib, CallingConvention = Cdecl)]
@@ -836,7 +962,7 @@ internal static class NativeMethods
     public static extern IntPtr linphone_chat_message_get_from_address(IntPtr msg);
 
     [DllImport(Lib, CallingConvention = Cdecl)]
-    public static extern int linphone_chat_message_is_outgoing(IntPtr msg);
+    public static extern byte linphone_chat_message_is_outgoing(IntPtr msg);
 
     [DllImport(Lib, CallingConvention = Cdecl)]
     public static extern IntPtr linphone_chat_room_get_history(IntPtr room, int nbMessage);
@@ -1012,7 +1138,7 @@ internal static class NativeMethods
     public static extern void linphone_conference_params_unref(IntPtr parms);
 
     [DllImport(Lib, CallingConvention = Cdecl)]
-    public static extern int linphone_core_is_in_conference(IntPtr core);
+    public static extern byte linphone_core_is_in_conference(IntPtr core);
 
     [DllImport(Lib, CallingConvention = Cdecl)]
     public static extern int linphone_core_terminate_conference(IntPtr core);
@@ -1038,14 +1164,14 @@ internal static class NativeMethods
     public static extern void linphone_call_set_microphone_muted(IntPtr call, int muted);
 
     [DllImport(Lib, CallingConvention = Cdecl)]
-    public static extern int linphone_call_get_microphone_muted(IntPtr call);
+    public static extern byte linphone_call_get_microphone_muted(IntPtr call);
 
     // Микрофон на уровне ядра — для конференции (у неё нет «текущего» звонка).
     [DllImport(Lib, CallingConvention = Cdecl)]
     public static extern void linphone_core_enable_mic(IntPtr core, int enable);
 
     [DllImport(Lib, CallingConvention = Cdecl)]
-    public static extern int linphone_core_mic_enabled(IntPtr core);
+    public static extern byte linphone_core_mic_enabled(IntPtr core);
 
     // ---------------------------------------------------------------------
     // Address
@@ -1057,6 +1183,10 @@ internal static class NativeMethods
     // Делегаты колбэков (native -> managed). CallingConvention.Cdecl.
     // Экземпляры делегатов ОБЯЗАТЕЛЬНО держать в полях, чтобы GC их не собрал.
     // ---------------------------------------------------------------------
+    /// <summary>Список аудиоустройств изменился (воткнули/выдернули гарнитуру).</summary>
+    [UnmanagedFunctionPointer(Cdecl)]
+    public delegate void AudioDevicesListUpdatedCb(IntPtr core);
+
     [UnmanagedFunctionPointer(Cdecl)]
     public delegate void RegistrationStateChangedCb(
         IntPtr core, IntPtr proxyConfig, int state,
